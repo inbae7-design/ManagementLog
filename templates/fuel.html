@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유류비 - 영농일지</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .table-responsive { font-size: 0.85rem; }
+        .table th { background-color: #f8f9fa; }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark shadow-sm mb-3">
+  <div class="container" style="max-width: 800px;">
+    <a href="/" class="navbar-brand mb-0 h4 fw-bold text-decoration-none">
+        <span class="fs-4 me-1">⬅️</span> 유류비 관리
+    </a>
+    <a href="/export_fuel" class="btn btn-sm btn-outline-light fw-bold">📥 엑셀 다운로드</a>
+  </div>
+</nav>
+
+<div class="container mb-5" style="max-width: 800px;">
+
+    <div class="row g-2 mb-4 text-center">
+        <div class="col-4">
+            <div class="card border-0 shadow-sm bg-white border-bottom border-success border-3">
+                <div class="card-body py-2 px-1">
+                    <span class="d-block text-muted" style="font-size: 0.75rem; font-weight: bold; margin-bottom: 2px;">경유 총액</span>
+                    <h6 class="text-success fw-bold m-0" style="font-size: 0.95rem;">{{ "{:,.0f}".format(diesel_total) }}원</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card border-0 shadow-sm bg-white border-bottom border-danger border-3">
+                <div class="card-body py-2 px-1">
+                    <span class="d-block text-muted" style="font-size: 0.75rem; font-weight: bold; margin-bottom: 2px;">휘발유 총액</span>
+                    <h6 class="text-danger fw-bold m-0" style="font-size: 0.95rem;">{{ "{:,.0f}".format(gasoline_total) }}원</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-4">
+            <div class="card border-0 shadow-sm bg-white border-bottom border-primary border-3">
+                <div class="card-body py-2 px-1">
+                    <span class="d-block text-muted" style="font-size: 0.75rem; font-weight: bold; margin-bottom: 2px;">등유 총액</span>
+                    <h6 class="text-primary fw-bold m-0" style="font-size: 0.95rem;">{{ "{:,.0f}".format(kerosene_total) }}원</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-white pt-3 border-0"><h6 class="fw-bold m-0 text-dark">➕ 유류 사용/구입 등록</h6></div>
+        <div class="card-body bg-white rounded">
+            <form action="/add_fuel" method="post">
+                <div class="row mb-3 g-2">
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1">날짜 (월. 일)</label>
+                        <input type="date" class="form-control" name="date" required id="todayDate">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small text-muted mb-1">유종</label>
+                        <select class="form-select border-secondary fw-bold" name="fuel_type" required>
+                            <option value="경유">경유</option>
+                            <option value="휘발유">휘발유</option>
+                            <option value="등유">등유</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3 g-2">
+                    <div class="col-5">
+                        <label class="form-label small text-muted mb-1">사용량 (L)</label>
+                        <div class="input-group">
+                            <input type="number" step="any" class="form-control" name="quantity" required>
+                            <span class="input-group-text bg-light">L</span>
+                        </div>
+                    </div>
+                    <div class="col-7">
+                        <label class="form-label small text-muted mb-1">금액 (원)</label>
+                        <input type="number" class="form-control fw-bold" name="cost" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-dark w-100 fw-bold shadow-sm py-2">등록하기</button>
+            </form>
+        </div>
+    </div>
+
+    <h6 class="text-secondary fw-bold mb-3">📋 상세 내역</h6>
+    <div class="table-responsive bg-white shadow-sm rounded border">
+        <table class="table table-hover align-middle text-center mb-0">
+            <thead>
+                <tr class="text-muted" style="font-size: 0.8rem;">
+                    <th>날짜</th>
+                    <th>유종/사용량</th>
+                    <th>금액</th>
+                    <th>관리</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fuel in fuels %}
+                <tr>
+                    <td><strong class="text-secondary">{{ fuel[2] }}</strong></td>
+                    <td>
+                        <strong class="text-dark">{{ fuel[3] }}</strong><br>
+                        <small class="text-muted">{{ fuel[4] }} L</small>
+                    </td>
+                    <td><strong class="text-dark">{{ "{:,.0f}".format(fuel[5]) }}원</strong></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary py-0 px-2 w-100 mb-1" 
+                            onclick="openEditFuelModal('{{ fuel[0] }}', '{{ fuel[2] }}', '{{ fuel[3] }}', '{{ fuel[4] }}', '{{ fuel[5] }}')">수정</button>
+                        <a href="/delete/fuel/{{ fuel[0] }}" class="btn btn-sm btn-outline-danger py-0 px-2 w-100" onclick="return confirm('이 항목을 삭제하시겠습니까?');">삭제</a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not fuels %}
+                <tr><td colspan="4" class="text-muted py-5">등록된 내역이 없습니다.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="editFuelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0" style="border-radius: 15px;">
+            <div class="modal-header bg-dark text-white py-2">
+                <h6 class="modal-title fw-bold">유류비 내역 수정</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <form action="/edit_fuel" method="post">
+                    <input type="hidden" name="id" id="e_id">
+                    <div class="row mb-3 g-2">
+                        <div class="col-6"><input type="date" class="form-control" name="date" id="e_date" required></div>
+                        <div class="col-6">
+                            <select class="form-select border-secondary fw-bold" name="fuel_type" id="e_type" required>
+                                <option value="경유">경유</option>
+                                <option value="휘발유">휘발유</option>
+                                <option value="등유">등유</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3 g-2">
+                        <div class="col-5">
+                            <div class="input-group">
+                                <input type="number" step="any" class="form-control" name="quantity" id="e_qty" placeholder="사용량" required>
+                                <span class="input-group-text">L</span>
+                            </div>
+                        </div>
+                        <div class="col-7">
+                            <input type="number" class="form-control fw-bold" name="cost" id="e_cost" placeholder="금액 (원)" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-dark w-100 fw-bold">수정 완료</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('todayDate').valueAsDate = new Date();
+
+    function openEditFuelModal(id, date, type, qty, cost) {
+        document.getElementById('e_id').value = id;
+        document.getElementById('e_date').value = date;
+        document.getElementById('e_type').value = type;
+        document.getElementById('e_qty').value = qty;
+        document.getElementById('e_cost').value = cost;
+        new bootstrap.Modal(document.getElementById('editFuelModal')).show();
+    }
+</script>
+</body>
+</html>

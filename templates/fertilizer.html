@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비료대 관리 - 영농일지</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .table-responsive { font-size: 0.85rem; }
+        .table th { background-color: #f8f9fa; }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-secondary shadow-sm mb-3">
+  <div class="container" style="max-width: 800px;">
+    <a href="/" class="navbar-brand mb-0 h4 fw-bold text-decoration-none">
+        <span class="fs-4 me-1">⬅️</span> 경영기록 > 비료대
+    </a>
+  </div>
+</nav>
+
+<div class="container mb-5" style="max-width: 800px;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <form action="/fertilizer" method="get" class="m-0">
+            <select name="year" class="form-select form-select-sm border-secondary fw-bold text-dark bg-white shadow-sm" onchange="this.form.submit()" style="width: auto; cursor: pointer;">
+                {% if years %}
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>📅 {{ y }}년도 지출</option>
+                    {% endfor %}
+                    <option value="all" {% if selected_year == 'all' %}selected{% endif %}>📅 전체 기간 보기</option>
+                {% else %}
+                    <option value="{{ selected_year }}">📅 {{ selected_year }}년도 지출</option>
+                {% endif %}
+            </select>
+        </form>
+        
+        <a href="/export_fertilizer?year={{ selected_year }}" class="btn btn-sm btn-outline-secondary fw-bold shadow-sm">📥 엑셀 다운로드</a>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <div class="card shadow-sm border-0 border-start border-primary border-4">
+                <div class="card-body py-2">
+                    <small class="text-muted fw-bold">
+                        {% if selected_year == 'all' %}전체 누적{% else %}{{ selected_year }}년{% endif %} 무기질 합계
+                    </small>
+                    <h5 class="m-0 fw-bold text-dark">{{ "{:,.0f}".format(inorganic_total) }}원</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="card shadow-sm border-0 border-start border-success border-4">
+                <div class="card-body py-2">
+                    <small class="text-muted fw-bold">
+                        {% if selected_year == 'all' %}전체 누적{% else %}{{ selected_year }}년{% endif %} 유기질 합계
+                    </small>
+                    <h5 class="m-0 fw-bold text-dark">{{ "{:,.0f}".format(organic_total) }}원</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body bg-white rounded">
+            <form action="/add_fertilizer" method="post">
+                <div class="row mb-2 g-2">
+                    <div class="col-6">
+                        <input type="date" class="form-control border-secondary" name="date" required id="todayDate">
+                    </div>
+                    <div class="col-6">
+                        <select class="form-select border-secondary" name="category" id="addCategory" required>
+                            <option value="무기질비료">무기질비료 (화학비료/양액)</option>
+                            <option value="유기질비료">유기질비료 (퇴비/유박)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row mb-2 g-2">
+                    <div class="col-5">
+                        <select class="form-select" name="type" id="addType" required></select>
+                    </div>
+                    <div class="col-7">
+                        <input type="text" class="form-control" name="product_name" placeholder="제품명 (예: 오이 A제, 펄수 등)" required>
+                    </div>
+                </div>
+                <div class="row mb-3 g-2">
+                    <div class="col-6">
+                        <div class="input-group">
+                            <input type="number" step="0.1" class="form-control" name="quantity" placeholder="수량" required>
+                            <select class="form-select bg-light text-center px-1" name="unit" style="max-width: 70px;">
+                                <option value="Kg">Kg</option>
+                                <option value="L">L</option>
+                                <option value="포">포</option>
+                                <option value="Box">Box</option>
+                                <option value="EA">EA</option>
+                                <option value="Set">Set</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="input-group">
+                            <input type="number" class="form-control" name="cost" placeholder="비용 지출액" required>
+                            <span class="input-group-text bg-light">원</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-secondary w-100 fw-bold shadow-sm">비료 사용/지출 기록</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive bg-white shadow-sm rounded border">
+        <table class="table table-hover align-middle text-center mb-0">
+            <thead><tr><th>날짜/구분</th><th>제품명/용도</th><th>수량/지출액</th><th>관리</th></tr></thead>
+            <tbody>
+                {% for rec in fertilizers %}
+                <tr>
+                    <td>
+                        <div class="fw-bold text-secondary mb-1" style="font-size: 0.8rem;">{{ rec[2] }}</div>
+                        <span class="badge {{ 'bg-success' if rec[3] == '유기질비료' else 'bg-primary' }} mb-1" style="font-size: 0.7rem;">{{ rec[3][:2] }}</span>
+                    </td>
+                    <td>
+                        <strong class="text-dark">{{ rec[7] if rec[7] else '미입력' }}</strong><br>
+                        <small class="text-muted" style="font-size: 0.75rem;">{{ rec[4] }}</small>
+                    </td>
+                    <td>
+                        {{ rec[5] }} {{ rec[8] if rec[8] else 'Kg' }}<br>
+                        <strong class="text-danger">{{ "{:,.0f}".format(rec[6]) }}원</strong>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary mb-1 w-100" style="font-size: 0.75rem;" onclick="openEditModal('{{ rec[0] }}', '{{ rec[2] }}', '{{ rec[3] }}', '{{ rec[4] }}', '{{ rec[5] }}', '{{ rec[6] }}', '{{ rec[7] }}', '{{ rec[8] }}')">수정</button>
+                        <a href="/delete/fertilizer/{{ rec[0] }}" class="btn btn-sm btn-outline-danger w-100" style="font-size: 0.75rem;" onclick="return confirm('이 비료 지출 내역을 삭제하시겠습니까?');">삭제</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white py-2">
+                <h6 class="modal-title fw-bold">비료 기록 수정</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="/edit_fertilizer" method="post">
+                    <input type="hidden" name="id" id="edit_id">
+                    <div class="row mb-2 g-2">
+                        <div class="col-6"><input type="date" class="form-control" name="date" id="edit_date" required></div>
+                        <div class="col-6">
+                            <select class="form-select" name="category" id="edit_category" required>
+                                <option value="무기질비료">무기질비료 (화학비료/양액)</option>
+                                <option value="유기질비료">유기질비료 (퇴비/유박)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-2 g-2">
+                        <div class="col-5">
+                            <select class="form-select" name="type" id="edit_type" required></select>
+                        </div>
+                        <div class="col-7">
+                            <input type="text" class="form-control" name="product_name" id="edit_product_name" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3 g-2">
+                        <div class="col-6">
+                            <div class="input-group">
+                                <input type="number" step="0.1" class="form-control" name="quantity" id="edit_quantity" required>
+                                <select class="form-select bg-light text-center px-1" name="unit" id="edit_unit" style="max-width: 70px;">
+                                    <option value="Kg">Kg</option>
+                                    <option value="L">L</option>
+                                    <option value="포">포</option>
+                                    <option value="Box">Box</option>
+                                    <option value="EA">EA</option>
+                                    <option value="Set">Set</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="input-group">
+                                <input type="number" class="form-control" name="cost" id="edit_cost" required>
+                                <span class="input-group-text bg-light">원</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-secondary w-100 fw-bold">수정 완료</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('todayDate').valueAsDate = new Date();
+
+    const typeOptions = {
+        '무기질비료': ['관주용(양액)', '밑거름(기비)', '웃거름(추비)', '엽면시비', '기타'],
+        '유기질비료': ['가축분퇴비', '유박비료', '혼합유기질', '기타']
+    };
+
+    function updateDropdown(categoryElementId, typeElementId, selectedValue = '') {
+        const category = document.getElementById(categoryElementId).value;
+        const typeSelect = document.getElementById(typeElementId);
+        typeSelect.innerHTML = ''; 
+
+        if (typeOptions[category]) {
+            typeOptions[category].forEach(function(item) {
+                const option = document.createElement('option');
+                option.value = item;
+                option.textContent = item;
+                if (item === selectedValue) {
+                    option.selected = true;
+                }
+                typeSelect.appendChild(option);
+            });
+        }
+    }
+
+    document.getElementById('addCategory').addEventListener('change', function() {
+        updateDropdown('addCategory', 'addType');
+    });
+
+    document.getElementById('edit_category').addEventListener('change', function() {
+        updateDropdown('edit_category', 'edit_type');
+    });
+
+    updateDropdown('addCategory', 'addType');
+
+    function openEditModal(id, date, category, type, quantity, cost, product_name, unit) {
+        document.getElementById('edit_id').value = id;
+        document.getElementById('edit_date').value = date;
+        document.getElementById('edit_category').value = category;
+        
+        updateDropdown('edit_category', 'edit_type', type);
+        
+        document.getElementById('edit_quantity').value = quantity;
+        document.getElementById('edit_cost').value = cost;
+        document.getElementById('edit_product_name').value = (product_name !== 'None') ? product_name : '';
+        document.getElementById('edit_unit').value = (unit && unit !== 'None') ? unit : 'Kg';
+        
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+</script>
+</body>
+</html>

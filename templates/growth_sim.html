@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오이 생육 시뮬레이션</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f1f5f9; color: #334155; }
+        .navbar-custom { background-color: #166534; border-bottom: 2px solid #14532d; }
+        .card-custom { border-radius: 16px; border: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); background: #fff;}
+        #vineCanvas { background-color: #bae6fd; border-radius: 12px; width: 100%; height: 60vh; max-height: 500px; display: block; margin: 0 auto; }
+        .date-badge { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(255,255,255,0.85); padding: 8px 20px; border-radius: 20px; font-weight: 900; color: #166534; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-3 shadow-sm">
+  <div class="container" style="max-width: 600px;">
+    <a href="/growth" class="text-light text-decoration-none fw-bold fs-5">
+        <span class="me-2">⬅️</span> 🥒 생육 시뮬레이션 방
+    </a>
+  </div>
+</nav>
+
+<div class="container" style="max-width: 600px;">
+    <div class="card-custom p-3 mb-3 position-relative">
+        <div id="dateDisplay" class="date-badge">데이터를 불러오는 중...</div>
+        <canvas id="vineCanvas" width="400" height="500"></canvas>
+    </div>
+
+    <div class="card-custom p-4 text-center">
+        <h5 class="fw-bold text-success mb-3" id="nodeDisplay">현재 주지 마디수: 0개</h5>
+
+        <div id="sliderContainer">
+            <input type="range" class="form-range" id="timeSlider" min="0" max="0" value="0" step="1">
+            <div class="d-flex justify-content-between text-muted mt-1" style="font-size: 0.8rem; font-weight: bold;">
+                <span>과거</span>
+                <span>최근</span>
+            </div>
+        </div>
+        <div id="noDataMessage" class="text-danger fw-bold d-none">
+            등록된 생육 데이터(주지마디수)가 없습니다.
+        </div>
+    </div>
+</div>
+
+<script>
+    // 백엔드에서 넘겨준 JSON 데이터 파싱
+    const historyData = JSON.parse('{{ sim_data_json | safe }}');
+
+    const canvas = document.getElementById('vineCanvas');
+    const ctx = canvas.getContext('2d');
+    const slider = document.getElementById('timeSlider');
+    const dateDisplay = document.getElementById('dateDisplay');
+    const nodeDisplay = document.getElementById('nodeDisplay');
+    const sliderContainer = document.getElementById('sliderContainer');
+    const noDataMessage = document.getElementById('noDataMessage');
+
+   // 정교해진 넝쿨 그리기 함수 (잎맥, 덩굴손, 오이꽃, 열매 추가)
+    function drawVine(nodes) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let currentX = canvas.width / 2;
+        let currentY = canvas.height;
+
+        // 마디 개수가 많아지면 화면을 벗어나지 않게 길이를 자동 조절
+        const maxExpectedNodes = Math.max(nodes, 25);
+        const stemLength = canvas.height / (maxExpectedNodes + 2);
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        for (let i = 1; i <= nodes; i++) {
+            // 메인 줄기가 지그재그로 자라는 각도 설정
+            let isRight = (i % 2 === 0);
+            let dir = isRight ? 1 : -1;
+            let nextX = currentX + (8 * dir);
+            let nextY = currentY - stemLength;
+
+            // 1. 메인 줄기 (짙은 녹색, 약간의 두께감)
+            ctx.beginPath();
+            ctx.moveTo(currentX, currentY);
+            ctx.lineTo(nextX, nextY);
+            ctx.strokeStyle = '#15803d'; // 진녹색
+            ctx.lineWidth = 6;
+            ctx.stroke();
+
+            ctx.save();
+            ctx.translate(nextX, nextY);
+
+            // 2. 오이 잎사귀 그리기 (단순 타원이 아닌 진짜 잎사귀 모양)
+            ctx.rotate((Math.PI / 3) * dir); // 잎사귀 각도
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            // 베지어 곡선을 이용해 갈라진 잎 모양 구현
+            ctx.bezierCurveTo(15, -15, 30, -5, 35, 10);
+            ctx.bezierCurveTo(40, 25, 20, 35, 10, 30);
+            ctx.bezierCurveTo(-5, 40, -15, 20, 0, 0);
+
+            ctx.fillStyle = '#4ade80'; // 잎사귀 색
+            ctx.fill();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = '#166534';
+            ctx.stroke();
+
+            // 잎맥 디테일
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(25, 15);
+            ctx.moveTo(10, 6);
+            ctx.lineTo(15, 25);
+            ctx.moveTo(15, 10);
+            ctx.lineTo(28, 5);
+            ctx.strokeStyle = '#14532d';
+            ctx.stroke();
+
+            // 3. 꼬불꼬불한 덩굴손 (3마디마다 발생)
+            if (i % 3 === 0) {
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.quadraticCurveTo(-20 * dir, -10, -10 * dir, -20);
+                ctx.quadraticCurveTo(0, -30, -15 * dir, -25);
+                ctx.strokeStyle = '#86efac'; // 연한 연두색
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // 4. 노란 꽃과 애기 오이 열매 (5마디마다 발생)
+            if (i % 5 === 0) {
+                ctx.rotate((-Math.PI / 1.5) * dir); // 아래로 늘어뜨려진 각도
+
+                // 애기 오이 몸통
+                ctx.beginPath();
+                ctx.roundRect(5, -4, 22, 9, 5);
+                ctx.fillStyle = '#166534';
+                ctx.fill();
+
+                // 노란 오이꽃
+                ctx.beginPath();
+                ctx.arc(30, 0, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#fbbf24'; // 샛노란색
+                ctx.fill();
+            }
+
+            ctx.restore();
+
+            currentX = nextX;
+            currentY = nextY;
+        }
+    }
+
+    // 슬라이더 값에 맞춰 화면 업데이트
+    function updateSimulation(index) {
+        if(historyData.length === 0) return;
+        const data = historyData[index];
+        const nodes = data.nodes;
+        const dateStr = data.date.substring(5); // YYYY-MM-DD 에서 MM-DD만 추출
+
+        dateDisplay.innerText = `🌱 ${dateStr} 측정 기록`;
+        nodeDisplay.innerText = `현재 주지 마디수: ${nodes}개`;
+
+        drawVine(nodes);
+    }
+
+    // 초기화 로직
+    if (historyData.length > 0) {
+        slider.max = historyData.length - 1;
+        slider.value = historyData.length - 1; // 가장 최근 데이터로 셋팅
+        updateSimulation(slider.value);
+
+        // 슬라이더 움직일 때마다 이벤트 발생
+        slider.addEventListener('input', function(e) {
+            updateSimulation(e.target.value);
+        });
+    } else {
+        sliderContainer.classList.add('d-none');
+        noDataMessage.classList.remove('d-none');
+        dateDisplay.innerText = "데이터 없음";
+    }
+</script>
+</body>
+</html>

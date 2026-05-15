@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 영농일지 - 홈</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2e4d2e">
+    <link rel="apple-touch-icon" href="/icon.svg">
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f4f6f3; color: #333; }
+        .navbar-custom { background-color: #2e4d2e; border-bottom: 2px solid #1a2f1a; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .navbar-brand-custom { font-size: 1.15rem; font-weight: 700; color: #f8fcf7; text-decoration: none; display: block; }
+        .profile-btn { background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); transition: 0.2s; }
+
+        .ticker-wrap-custom { width: 100%; overflow: hidden; white-space: nowrap; background-color: #38a169; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .ticker-custom { display: inline-block; padding-left: 100%; color: #fdfdfd; font-weight: 700; font-size: 0.95rem; animation: ticker 20s linear infinite; }
+        @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+
+        /* 날씨 위젯 디자인 개선 */
+        .weather-card-custom { border-radius: 15px; border: 1px solid #e2e8f0; box-shadow: 0 6px 12px rgba(0,0,0,0.05); background: #ffffff; padding: 15px;}
+        .forecast-item { text-align: center; }
+
+        /* 메인 대문 배너 반반 배치용 크기 조정 */
+        .main-banner { border-radius: 20px; transition: all 0.3s ease; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 10px; box-shadow: 0 6px 15px rgba(0,0,0,0.1); text-align: center; height: 100%;}
+        .main-banner:active { transform: scale(0.97); }
+        .banner-icon { font-size: 2.5rem; margin-bottom: 5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);}
+        .banner-title { font-size: 1.1rem; font-weight: 900; margin: 0; word-break: keep-all;}
+        .banner-sub { font-size: 0.75rem; opacity: 0.9; margin-top: 5px; font-weight: bold;}
+
+        /* 외부 링크 배너 */
+        .notice-card { border-radius: 12px; text-decoration: none; display: block; padding: 12px 15px; box-shadow: 0 3px 6px rgba(0,0,0,0.05); margin-bottom: 10px;}
+        .card-anseong { background: linear-gradient(135deg, #e6ffe6 0%, #ffffff 100%); border: 1px solid #c3e6c3; color: #2e4d2e; }
+        .card-edu { background: linear-gradient(135deg, #e6f2ff 0%, #ffffff 100%); border: 1px solid #c3e0ff; color: #004085; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-0">
+  <div class="container d-flex flex-column gap-2" style="max-width: 800px;">
+    <div class="w-100">
+        <span class="navbar-brand-custom">🥒 오이를 스마트하게! 오이연구회!</span>
+    </div>
+    <div class="d-flex justify-content-between align-items-center w-100">
+        <a href="/profile" class="profile-btn text-light text-decoration-none d-flex align-items-center gap-1 px-2 py-1 rounded-pill shadow-sm">
+            <span class="fs-6" style="margin-top:-2px;">👤</span>
+            <span class="small fw-bold d-inline-block text-truncate" style="max-width: 80px; font-size: 0.8rem;">
+                {% if current_user.farm_name %}{{ current_user.farm_name }}{% else %}{{ current_user.username }}{% endif %}
+            </span>
+        </a>
+        <div class="d-flex align-items-center gap-1">
+            {% if current_user.username == 'admin' %}
+                <a href="/admin_page" class="btn btn-sm text-dark bg-warning fw-bold rounded-pill shadow-sm px-2 py-1" style="font-size: 0.75rem;">👑 회원관리</a>
+            {% endif %}
+            <a href="/farm_info" class="btn btn-sm bg-white text-success fw-bold rounded-pill shadow-sm px-2 py-1" style="font-size: 0.75rem;">🚜 내 농장 현황</a>
+            <a href="/logout" class="btn btn-sm btn-outline-light rounded-pill px-2 py-1" style="font-size: 0.75rem; border-color: rgba(255,255,255,0.4);">로그아웃</a>
+        </div>
+    </div>
+  </div>
+</nav>
+
+<div class="ticker-wrap-custom py-2 mb-3 shadow-sm">
+    <div class="ticker-custom">{{ ticker_text }}</div>
+</div>
+
+<div class="container mb-5" style="max-width: 800px;">
+
+    <div class="weather-card-custom mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h6 class="fw-bold mb-1 text-dark" style="font-size:0.9rem;">🌤️ 실시간 날씨</h6>
+                <div id="weather-desc" class="small text-muted" style="font-size:0.75rem;">{{ farm_address if farm_address else '안성시' }} 기준</div>
+            </div>
+            <div class="text-end">
+                <h3 id="weather-temp" class="fw-bold mb-0" style="color: #dc3545;">--°C</h3>
+                <small id="weather-humidity" class="fw-bold" style="color: #0d6efd; font-size:0.8rem;">습도: --%</small>
+            </div>
+        </div>
+        <div class="d-flex justify-content-between pt-2 border-top" id="weekly-forecast">
+            <div class="text-center text-muted small w-100 py-2">주간 예보를 불러오는 중입니다...</div>
+        </div>
+    </div>
+
+   <div class="row g-2 mb-4">
+        <div class="col-6">
+            <a href="/farming_menu" class="main-banner" style="background: linear-gradient(135deg, #2e4d2e 0%, #38a169 100%); text-decoration: none; display: block;">
+                <div class="banner-icon">📓</div>
+                <div class="banner-title text-white">경영기록장</div>
+                <div class="banner-sub text-white opacity-75">농장 데이터 입력 ▶</div>
+            </a>
+        </div>
+
+        <div class="col-6">
+            <a href="/community_menu" class="main-banner" style="background: linear-gradient(135deg, #ff9f00 0%, #ffc107 100%); text-decoration: none; display: block;">
+                <div class="banner-icon">💬</div>
+                <div class="banner-title text-dark">연구회 커뮤니티</div>
+                <div class="banner-sub text-dark opacity-75">채팅 및 게시판 ▶</div>
+            </a>
+        </div>
+
+        <div class="col-12">
+            <a href="http://jjufarm.tplinkdns.com:5173" target="_blank" class="main-banner" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); text-decoration: none; display: block;">
+                <div class="banner-icon">🚀</div>
+                <div class="banner-title text-white">
+                    FUTURICS 스마트팜 OS <span class="badge bg-danger ms-1" style="font-size: 0.75rem; vertical-align: text-top; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">LIVE</span>
+                </div>
+                <div class="banner-sub text-white opacity-75">농장 관제센터 새 창으로 접속하기 ↗</div>
+            </a>
+        </div>
+    </div>
+
+    <h6 class="fw-bold text-secondary mb-2 ms-1" style="font-size:0.85rem;">관련 기관 소식</h6>
+    <a href="https://www.anseong.go.kr/farm/bbs/list.do?ptIdx=16&mId=0404010000&token=1773833748545" target="_blank" class="notice-card card-anseong d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+            <span class="fs-4 me-2">📢</span>
+            <div>
+                <h6 class="fw-bold m-0" style="color: #198754; font-size: 0.95rem;">안성시 농업기술센터</h6>
+                <span class="small text-muted fw-bold" style="font-size:0.75rem;">공지사항 및 새소식 확인</span>
+            </div>
+        </div>
+        <span class="opacity-50 text-success fw-bold">▶</span>
+    </a>
+
+    <a href="https://agriedu.net/" target="_blank" class="notice-card card-edu d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+            <span class="fs-4 me-2">🎓</span>
+            <div>
+                <h6 class="fw-bold m-0" style="color: #0d6efd; font-size: 0.95rem;">AgriEDU 농업교육포털</h6>
+                <span class="small text-muted fw-bold" style="font-size:0.75rem;">농업 교육 및 온라인 수강</span>
+            </div>
+        </div>
+        <span class="opacity-50 text-primary fw-bold">▶</span>
+    </a>
+
+</div>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').then(() => console.log('SW Registered'));
+  }
+</script>
+<script>
+    // 날씨 정보 가져오기 (현재 + 5일 주간 예보)
+    const lat = 37.0079; const lon = 127.2797; // 안성 기준
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=Asia%2FSeoul&wind_speed_unit=ms`;
+
+    // WMO 날씨 코드를 이모지로 변환하는 함수
+    function getWeatherEmoji(code) {
+        if(code <= 3) return '☀️'; // 맑음/구름
+        if(code <= 48) return '🌫️'; // 안개
+        if(code <= 69) return '🌧️'; // 비
+        if(code <= 79) return '🌨️'; // 눈
+        if(code <= 82) return '⛈️'; // 소나기
+        if(code <= 99) return '🌩️'; // 천둥번개
+        return '🌤️';
+    }
+
+    fetch(weatherUrl)
+        .then(response => response.json())
+        .then(data => {
+            if(data && data.current && data.daily) {
+                // 실시간 날씨 세팅
+                document.getElementById('weather-temp').innerText = data.current.temperature_2m + '°C';
+                document.getElementById('weather-humidity').innerText = '습도: ' + data.current.relative_humidity_2m + '%';
+                document.getElementById('weather-desc').innerText += ` (풍속: ${data.current.wind_speed_10m}m/s)`;
+
+                // 주간 예보 (오늘 포함 5일) 세팅
+                let forecastHtml = '';
+                const days = ['일', '월', '화', '수', '목', '금', '토'];
+
+                for(let i=0; i<5; i++) {
+                    const dateStr = data.daily.time[i];
+                    const dateObj = new Date(dateStr);
+                    const dayName = i === 0 ? '오늘' : days[dateObj.getDay()];
+                    const maxT = Math.round(data.daily.temperature_2m_max[i]);
+                    const minT = Math.round(data.daily.temperature_2m_min[i]);
+                    const emoji = getWeatherEmoji(data.daily.weathercode[i]);
+
+                    forecastHtml += `
+                        <div class="forecast-item flex-fill">
+                            <div class="fw-bold mb-1" style="font-size:0.8rem; color:#555;">${dayName}</div>
+                            <div class="fs-5 mb-1">${emoji}</div>
+                            <div class="fw-bold" style="font-size:0.75rem;">
+                                <span style="color:#dc3545;">${maxT}°</span><span class="text-muted mx-1">/</span><span style="color:#0d6efd;">${minT}°</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('weekly-forecast').innerHTML = forecastHtml;
+            }
+        })
+        .catch(error => {
+            document.getElementById('weather-desc').innerText = '날씨 정보 로드 실패';
+            document.getElementById('weekly-forecast').innerHTML = '<div class="text-center text-muted small w-100 py-1">예보 정보를 불러오지 못했습니다.</div>';
+        });
+</script>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>농가 경영주 및 시설 현황</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f4f6f3; color: #333; }
+        .navbar-custom { background-color: #2e4d2e; border-bottom: 2px solid #1a2f1a; }
+        
+        .section-title { font-weight: 800; font-size: 1.1rem; color: #1a2f1a; margin-bottom: 15px; margin-top: 30px; display: flex; align-items: center; gap: 8px;}
+        .section-title::before { content: ''; display: inline-block; width: 5px; height: 18px; background-color: #38a169; border-radius: 5px; }
+        
+        .info-card { background-color: #ffffff; border-radius: 15px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid #e2e8f0; margin-bottom: 20px;}
+        .data-label { font-size: 0.8rem; color: #718096; font-weight: 400; }
+        .data-value { font-size: 0.95rem; color: #2d3748; font-weight: 700; }
+        
+        .input-group-text { font-size: 0.8rem; font-weight: bold; justify-content: center; }
+        .label-fix { width: 65px; background-color: #f8f9fa; color: #2e4d2e; border-color: #cbd5e0; }
+        .unit-fix { width: 45px; background-color: #edf2f7; color: #718096; border-color: #cbd5e0; }
+        .form-control { border-color: #cbd5e0; font-size: 0.9rem; font-weight: bold; color: #2d3748; text-align: right;}
+        .form-control::placeholder { color: #cbd5e0; font-weight: normal; }
+        
+        .item-box { background-color: #f8faf8; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-4 shadow-sm">
+  <div class="container d-flex justify-content-between align-items-center" style="max-width: 800px;">
+    <a href="/" class="text-light text-decoration-none fw-bold fs-5">
+        <span class="me-1">⬅️</span> 🚜 농가 종합 현황판
+    </a>
+    <a href="/export_farm_profile" class="btn btn-sm btn-outline-light rounded-pill px-3 fw-bold shadow-sm">📥 엑셀 다운로드</a>
+  </div>
+</nav>
+
+<div class="container mb-5" style="max-width: 800px;">
+
+    <div id="viewMode">
+        <div class="d-flex justify-content-between align-items-end mb-4">
+            <div>
+                <h4 class="fw-bold m-0 text-success">우리 농장 프로필</h4>
+                <small class="text-muted">경영주 및 영농시설·기계 현황</small>
+            </div>
+            <button class="btn btn-primary fw-bold shadow-sm rounded-pill px-3" onclick="toggleEditMode()">✏️ 정보 수정</button>
+        </div>
+
+        <div class="section-title" style="margin-top: 0;">작물 및 기본 정보</div>
+        <div class="info-card">
+            <div class="row g-3">
+                <div class="col-4 border-end"><div class="data-label">작물명</div><div class="data-value text-success fs-5">{{ data.crop_name | default('오이') }}</div></div>
+                <div class="col-4 border-end"><div class="data-label">재배방식</div><div class="data-value">{{ data.cultivation_type | default('-') }}</div></div>
+                <div class="col-4"><div class="data-label">조사연도</div><div class="data-value">{{ data.survey_year | default('-') }}년</div></div>
+                <div class="col-12 border-top pt-3">
+                    <div class="row g-3">
+                        <div class="col-6"><div class="data-label">농가명</div><div class="data-value">{{ data.farm_name | default('-') }}</div></div>
+                        <div class="col-6"><div class="data-label">전화번호</div><div class="data-value">{{ data.phone | default('-') }}</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">위치 정보</div>
+        <div class="info-card">
+            <div class="mb-3 pb-2 border-bottom">
+                <div class="data-label mb-1">🏠 자택 주소</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="data-value text-truncate pe-2">{{ data.home_address | default('미입력') }}</div>
+                    {% if data.home_address %}
+                    <a href="https://map.naver.com/v5/search/{{ data.home_address }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0" style="font-size: 0.75rem; white-space: nowrap;">지도보기</a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="mb-3 pb-2 border-bottom">
+                <div class="data-label mb-1">🌱 필지 주소 (1)</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="data-value text-truncate pe-2">{{ data.field_address_1 | default('미입력') }}</div>
+                    {% if data.field_address_1 %}
+                    <a href="https://map.naver.com/v5/search/{{ data.field_address_1 }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0" style="font-size: 0.75rem; white-space: nowrap;">지도보기</a>
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="data-label mb-1">🌱 필지 주소 (2)</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="data-value text-truncate pe-2">{{ data.field_address_2 | default('미입력') }}</div>
+                    {% if data.field_address_2 %}
+                    <a href="https://map.naver.com/v5/search/{{ data.field_address_2 }}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0" style="font-size: 0.75rem; white-space: nowrap;">지도보기</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">경영주 및 경영규모</div>
+        <div class="info-card">
+            <div class="row g-3 mb-3 pb-3 border-bottom text-center">
+                <div class="col-3"><div class="data-label">연령</div><div class="data-value">{{ data.mgr_age | default('-') }}<small class="fw-normal">세</small></div></div>
+                <div class="col-3"><div class="data-label">영농경력</div><div class="data-value">{{ data.mgr_exp | default('-') }}<small class="fw-normal">년</small></div></div>
+                <div class="col-3"><div class="data-label">재배경력</div><div class="data-value">{{ data.mgr_crop_exp | default('-') }}<small class="fw-normal">년</small></div></div>
+                <div class="col-3"><div class="data-label">종사자수</div><div class="data-value">{{ data.mgr_family | default('-') }}<small class="fw-normal">명</small></div></div>
+            </div>
+            <div class="data-label mb-2">📐 경영 규모 (단위: 평 / 축산: 두)</div>
+            <div class="d-flex gap-2 text-center overflow-auto" style="white-space: nowrap;">
+                <div class="flex-fill bg-light p-2 rounded border"><div class="data-label">벼</div><div class="data-value">{{ data.scale_rice | default('-') }}</div></div>
+                <div class="flex-fill bg-light p-2 rounded border"><div class="data-label">채소</div><div class="data-value">{{ data.scale_veg | default('-') }}</div></div>
+                <div class="flex-fill bg-light p-2 rounded border"><div class="data-label">과수</div><div class="data-value">{{ data.scale_fruit | default('-') }}</div></div>
+                <div class="flex-fill bg-light p-2 rounded border"><div class="data-label">기타</div><div class="data-value">{{ data.scale_etc | default('-') }}</div></div>
+                <div class="flex-fill bg-light p-2 rounded border"><div class="data-label">축산</div><div class="data-value">{{ data.scale_stock | default('-') }}</div></div>
+            </div>
+        </div>
+
+        <div class="section-title">영농시설 현황 (설치연도/규모/비용)</div>
+        <div class="row g-2 mb-4">
+            {% set facs = [
+                ('🏠 하우스', data.fac_house_yr, data.fac_house_scale, data.fac_house_cost, data.fac_house_ratio),
+                ('🏭 창고', data.fac_whouse_yr, data.fac_whouse_scale, data.fac_whouse_cost, data.fac_whouse_ratio),
+                ('🧊 저장소', data.fac_storage_yr, data.fac_storage_scale, data.fac_storage_cost, data.fac_storage_ratio),
+                ('📦 선별장', data.fac_sort_yr, data.fac_sort_scale, data.fac_sort_cost, data.fac_sort_ratio),
+                ('💧 관정(지하수)', data.fac_well_yr, data.fac_well_scale, data.fac_well_cost, data.fac_well_ratio),
+                ('🚿 관수시설', data.fac_water_yr, data.fac_water_scale, data.fac_water_cost, data.fac_water_ratio)
+            ] %}
+            
+            {% for name, yr, scale, cost, ratio in facs %}
+                {% if yr or scale or cost or ratio %}
+                <div class="col-12 col-md-6">
+                    <div class="item-box m-0">
+                        <h6 class="fw-bold text-success mb-2">{{ name }}</h6>
+                        <div class="row g-2 text-center">
+                            <div class="col-3"><div class="data-label">설치</div><div class="data-value text-truncate">{{ yr | default('-') }}</div></div>
+                            <div class="col-3"><div class="data-label">규모(평)</div><div class="data-value text-truncate">{{ scale | default('-') }}</div></div>
+                            <div class="col-3"><div class="data-label">투자(천원)</div><div class="data-value text-truncate">{{ cost | default('-') }}</div></div>
+                            <div class="col-3"><div class="data-label">비율(%)</div><div class="data-value text-truncate">{{ ratio | default('-') }}</div></div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+            
+            {% for k, v in data.items() %}
+                {% if k.startswith('fac_dyn_') and k.endswith('_name') and v %}
+                    {% set pfx = k[:-5] %}
+                    <div class="col-12 col-md-6">
+                        <div class="item-box m-0 border-start-success border-4">
+                            <h6 class="fw-bold text-success mb-2">⚙️ {{ v }}</h6>
+                            <div class="row g-2 text-center">
+                                <div class="col-3"><div class="data-label">설치</div><div class="data-value text-truncate">{{ data[pfx+'_yr'] | default('-') }}</div></div>
+                                <div class="col-3"><div class="data-label">규모(평)</div><div class="data-value text-truncate">{{ data[pfx+'_scale'] | default('-') }}</div></div>
+                                <div class="col-3"><div class="data-label">투자(천원)</div><div class="data-value text-truncate">{{ data[pfx+'_cost'] | default('-') }}</div></div>
+                                <div class="col-3"><div class="data-label">비율(%)</div><div class="data-value text-truncate">{{ data[pfx+'_ratio'] | default('-') }}</div></div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="section-title">농기계 현황 (구입연도/대수/비용)</div>
+        <div class="row g-2 mb-4">
+            {% set macs = [
+                ('🚜 경운기', data.mac_1_yr, data.mac_1_cnt, data.mac_1_cost, data.mac_1_ratio),
+                ('🚜 트랙터', data.mac_2_yr, data.mac_2_cnt, data.mac_2_cost, data.mac_2_ratio),
+                ('🌱 파종기', data.mac_3_yr, data.mac_3_cnt, data.mac_3_cost, data.mac_3_ratio),
+                ('🛠️ 관리기', data.mac_4_yr, data.mac_4_cnt, data.mac_4_cost, data.mac_4_ratio),
+                ('💦 방제기', data.mac_5_yr, data.mac_5_cnt, data.mac_5_cost, data.mac_5_ratio),
+                ('💩 퇴비살포기', data.mac_6_yr, data.mac_6_cnt, data.mac_6_cost, data.mac_6_ratio)
+            ] %}
+            
+            {% for name, yr, cnt, cost, ratio in macs %}
+                {% if yr or cnt or cost or ratio %}
+                <div class="col-12 col-md-6">
+                    <div class="item-box m-0">
+                        <h6 class="fw-bold text-primary mb-2">{{ name }}</h6>
+                        <div class="row g-2 text-center">
+                            <div class="col-3"><div class="data-label">구입</div><div class="data-value text-truncate">{{ yr | default('-') }}</div></div>
+                            <div class="col-3"><div class="data-label">대수(대)</div><div class="data-value text-truncate">{{ cnt | default('-') }}</div></div>
+                            <div class="col-3"><div class="data-label">구입(천원)</div><div class="data-value text-truncate">{{ cost | default('-') }}</div></div>
+                            <div class="col-3"><div class="data-label">비율(%)</div><div class="data-value text-truncate">{{ ratio | default('-') }}</div></div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+
+            {% for k, v in data.items() %}
+                {% if k.startswith('mac_dyn_') and k.endswith('_name') and v %}
+                    {% set pfx = k[:-5] %}
+                    <div class="col-12 col-md-6">
+                        <div class="item-box m-0 border-start-primary border-4">
+                            <h6 class="fw-bold text-primary mb-2">⚙️ {{ v }}</h6>
+                            <div class="row g-2 text-center">
+                                <div class="col-3"><div class="data-label">구입</div><div class="data-value text-truncate">{{ data[pfx+'_yr'] | default('-') }}</div></div>
+                                <div class="col-3"><div class="data-label">대수(대)</div><div class="data-value text-truncate">{{ data[pfx+'_cnt'] | default('-') }}</div></div>
+                                <div class="col-3"><div class="data-label">구입(천원)</div><div class="data-value text-truncate">{{ data[pfx+'_cost'] | default('-') }}</div></div>
+                                <div class="col-3"><div class="data-label">비율(%)</div><div class="data-value text-truncate">{{ data[pfx+'_ratio'] | default('-') }}</div></div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+
+    <div id="editMode" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+            <h5 class="fw-bold m-0 text-primary">✏️ 프로필 입력/수정</h5>
+            <button class="btn btn-secondary fw-bold shadow-sm rounded-pill px-3" onclick="toggleEditMode()">작성 취소</button>
+        </div>
+
+        <form action="/save_farm_profile" method="post">
+            
+            <div class="section-title mt-0">작물 및 위치 정보</div>
+            <div class="info-card bg-light">
+                <div class="row g-2 mb-3">
+                    <div class="col-8"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-success">작물명</span><input type="text" class="form-control text-start" name="crop_name" value="{{ data.crop_name | default('오이') }}"></div></div>
+                    <div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text label-fix">연도</span><input type="number" class="form-control" name="survey_year" value="{{ data.survey_year | default('2026') }}"></div></div>
+                    <div class="col-12">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text label-fix text-success">재배방식</span>
+                            <select class="form-select fw-bold" name="cultivation_type">
+                                <option value="노지" {% if data.cultivation_type == '노지' %}selected{% endif %}>노지</option>
+                                <option value="시설(토경)" {% if data.cultivation_type == '시설(토경)' %}selected{% endif %}>시설 (토경)</option>
+                                <option value="시설(수경)" {% if data.cultivation_type == '시설(수경)' %}selected{% endif %}>시설 (수경)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-fix">농가명</span><input type="text" class="form-control text-start" name="farm_name" value="{{ data.farm_name | default('') }}"></div></div>
+                    <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-fix">연락처</span><input type="text" class="form-control text-start" name="phone" value="{{ data.phone | default('') }}" placeholder="010-0000-0000"></div></div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary">자택주소</span><input type="text" class="form-control text-start" name="home_address" value="{{ data.home_address | default('') }}" placeholder="지도 검색용 시/도 시/군/구"></div></div>
+                    <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary">필지(1)</span><input type="text" class="form-control text-start" name="field_address_1" value="{{ data.field_address_1 | default('') }}"></div></div>
+                    <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary">필지(2)</span><input type="text" class="form-control text-start" name="field_address_2" value="{{ data.field_address_2 | default('') }}"></div></div>
+                </div>
+            </div>
+
+            <div class="section-title">경영주 및 경영규모</div>
+            <div class="info-card bg-light">
+                <div class="row g-2 mb-3">
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix">연령</span><input type="number" class="form-control" name="mgr_age" value="{{ data.mgr_age | default('') }}"><span class="input-group-text unit-fix">세</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix">영농경력</span><input type="number" class="form-control" name="mgr_exp" value="{{ data.mgr_exp | default('') }}"><span class="input-group-text unit-fix">년</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix">재배경력</span><input type="number" class="form-control" name="mgr_crop_exp" value="{{ data.mgr_crop_exp | default('') }}"><span class="input-group-text unit-fix">년</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix">종사자수</span><input type="number" class="form-control" name="mgr_family" value="{{ data.mgr_family | default('') }}"><span class="input-group-text unit-fix">명</span></div></div>
+                </div>
+                <div class="data-label mb-2 fw-bold text-dark">경영 규모 (단위: 평 / 축산: 두)</div>
+                <div class="row g-2">
+                    <div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:45px;">벼</span><input type="number" class="form-control" name="scale_rice" value="{{ data.scale_rice | default('') }}"></div></div>
+                    <div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:45px;">채소</span><input type="number" class="form-control" name="scale_veg" value="{{ data.scale_veg | default('') }}"></div></div>
+                    <div class="col-4"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:45px;">과수</span><input type="number" class="form-control" name="scale_fruit" value="{{ data.scale_fruit | default('') }}"></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:45px;">기타</span><input type="number" class="form-control" name="scale_etc" value="{{ data.scale_etc | default('') }}"></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:45px;">축산</span><input type="number" class="form-control" name="scale_stock" value="{{ data.scale_stock | default('') }}"></div></div>
+                </div>
+            </div>
+
+            <div class="section-title">영농시설 상세 입력</div>
+            {% set fac_inputs = [('fac_house', '🏠 하우스'), ('fac_whouse', '🏭 창고'), ('fac_storage', '🧊 저장소'), ('fac_sort', '📦 선별장'), ('fac_well', '💧 관정(지하수)'), ('fac_water', '🚿 관수시설')] %}
+            <div class="row g-0 mb-3">
+            {% for pfx, name in fac_inputs %}
+                <div class="col-12">
+                    <div class="item-box bg-white border border-success border-opacity-25 border-start border-4 border-start-success shadow-sm">
+                        <h6 class="fw-bold text-success mb-2">{{ name }}</h6>
+                        <div class="row g-2">
+                            <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">연도</span><input type="number" class="form-control" name="{{ pfx }}_yr" value="{{ data[pfx + '_yr'] | default('') }}" placeholder="입력"><span class="input-group-text unit-fix">년</span></div></div>
+                            <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">규모</span><input type="number" class="form-control" name="{{ pfx }}_scale" value="{{ data[pfx + '_scale'] | default('') }}" placeholder="입력"><span class="input-group-text unit-fix">평</span></div></div>
+                            <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">비용</span><input type="number" class="form-control" name="{{ pfx }}_cost" value="{{ data[pfx + '_cost'] | default('') }}" placeholder="입력"><span class="input-group-text unit-fix" style="font-size: 0.7rem;">천원</span></div></div>
+                            <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">비율</span><input type="number" class="form-control" name="{{ pfx }}_ratio" value="{{ data[pfx + '_ratio'] | default('') }}" placeholder="입력"><span class="input-group-text unit-fix">%</span></div></div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+
+            <div id="dynamic-fac-container" class="row g-0 mb-2">
+                {% for k, v in data.items() %}
+                    {% if k.startswith('fac_dyn_') and k.endswith('_name') and v %}
+                        {% set pfx = k[:-5] %}
+                        <div class="col-12" id="box_{{ pfx }}">
+                            <div class="item-box bg-white border border-success border-opacity-25 border-start border-4 border-start-success shadow-sm position-relative">
+                                <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="document.getElementById('box_{{ pfx }}').remove()" style="font-size: 0.7rem;"></button>
+                                <input type="text" class="form-control form-control-sm text-success fw-bold mb-2 w-75 border-success" name="{{ k }}" value="{{ v }}" placeholder="새 시설명 (예: 환풍기)" required>
+                                <div class="row g-2">
+                                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">연도</span><input type="number" class="form-control" name="{{ pfx }}_yr" value="{{ data[pfx+'_yr'] | default('') }}"><span class="input-group-text unit-fix">년</span></div></div>
+                                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">규모</span><input type="number" class="form-control" name="{{ pfx }}_scale" value="{{ data[pfx+'_scale'] | default('') }}"><span class="input-group-text unit-fix">평</span></div></div>
+                                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">비용</span><input type="number" class="form-control" name="{{ pfx }}_cost" value="{{ data[pfx+'_cost'] | default('') }}"><span class="input-group-text unit-fix" style="font-size:0.7rem;">천원</span></div></div>
+                                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">비율</span><input type="number" class="form-control" name="{{ pfx }}_ratio" value="{{ data[pfx+'_ratio'] | default('') }}"><span class="input-group-text unit-fix">%</span></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            
+            <button type="button" class="btn btn-outline-success w-100 fw-bold mb-4 rounded-pill" onclick="addFacility()">➕ 기타 시설물 정보 칸 추가</button>
+
+
+            <div class="section-title">농기계 상세 입력</div>
+            {% set mac_inputs = [('mac_1', '🚜 경운기'), ('mac_2', '🚜 트랙터'), ('mac_3', '🌱 파종기'), ('mac_4', '🛠️ 관리기'), ('mac_5', '💦 방제기'), ('mac_6', '💩 퇴비살포기')] %}
+            <div class="row g-0 mb-3">
+            {% for pfx, name in mac_inputs %}
+                <div class="col-12">
+                    <div class="item-box bg-white border border-primary border-opacity-25 border-start border-4 border-start-primary shadow-sm">
+                        <h6 class="fw-bold text-primary mb-2">{{ name }}</h6>
+                        <div class="row g-2">
+                            <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">연도</span><input type="number" class="form-control" name="{{ pfx }}_yr" value="{{ data[pfx + '_yr'] | default('') }}" placeholder="입력"><span class="input-group-text unit-fix">년</span></div></div>
+                            <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">대수</span><input type="number" class="form-control" name="{{ pfx }}_cnt" value="{{ data[pfx + '_cnt'] | default('') }}" placeholder="입력"><span class="input-group-text unit-fix">대</span></div></div>
+                            <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">비용</span><input type="number" class="form-control" name="{{ pfx }}_cost" value="{{ data[pfx + '_cost'] | default('') }}" placeholder="입력"><span class="input-group-text unit-fix" style="font-size: 0.7rem;">천원</span></div></div>
+                            <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">비율</span><input type="number" class="form-control" name="{{ pfx }}_ratio" value="{{ data[pfx + '_ratio'] | default('') }}" placeholder="입력"><span class="input-group-text unit-fix">%</span></div></div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+
+            <div id="dynamic-mac-container" class="row g-0 mb-2">
+                {% for k, v in data.items() %}
+                    {% if k.startswith('mac_dyn_') and k.endswith('_name') and v %}
+                        {% set pfx = k[:-5] %}
+                        <div class="col-12" id="box_{{ pfx }}">
+                            <div class="item-box bg-white border border-primary border-opacity-25 border-start border-4 border-start-primary shadow-sm position-relative">
+                                <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="document.getElementById('box_{{ pfx }}').remove()" style="font-size: 0.7rem;"></button>
+                                <input type="text" class="form-control form-control-sm text-primary fw-bold mb-2 w-75 border-primary" name="{{ k }}" value="{{ v }}" placeholder="새 기계명 (예: 지게차)" required>
+                                <div class="row g-2">
+                                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">연도</span><input type="number" class="form-control" name="{{ pfx }}_yr" value="{{ data[pfx+'_yr'] | default('') }}"><span class="input-group-text unit-fix">년</span></div></div>
+                                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">대수</span><input type="number" class="form-control" name="{{ pfx }}_cnt" value="{{ data[pfx+'_cnt'] | default('') }}"><span class="input-group-text unit-fix">대</span></div></div>
+                                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">비용</span><input type="number" class="form-control" name="{{ pfx }}_cost" value="{{ data[pfx+'_cost'] | default('') }}"><span class="input-group-text unit-fix" style="font-size:0.7rem;">천원</span></div></div>
+                                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">비율</span><input type="number" class="form-control" name="{{ pfx }}_ratio" value="{{ data[pfx+'_ratio'] | default('') }}"><span class="input-group-text unit-fix">%</span></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <button type="button" class="btn btn-outline-primary w-100 fw-bold mb-4 rounded-pill" onclick="addMachinery()">➕ 기타 농기계 장비 칸 추가</button>
+
+            <button type="submit" class="btn btn-success w-100 fw-bold py-3 fs-5 shadow-sm rounded-pill mt-3">💾 프로필 저장 완료</button>
+        </form>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function toggleEditMode() {
+        const view = document.getElementById('viewMode');
+        const edit = document.getElementById('editMode');
+        if (view.style.display === 'none') {
+            view.style.display = 'block';
+            edit.style.display = 'none';
+            window.scrollTo(0, 0);
+        } else {
+            view.style.display = 'none';
+            edit.style.display = 'block';
+            window.scrollTo(0, 0);
+        }
+    }
+
+    // ✨ 동적 시설 추가 함수
+    function addFacility() {
+        const id = Date.now();
+        const html = `
+        <div class="col-12" id="box_fac_dyn_${id}">
+            <div class="item-box bg-white border border-success border-opacity-25 border-start border-4 border-start-success shadow-sm position-relative">
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="document.getElementById('box_fac_dyn_${id}').remove()" style="font-size: 0.7rem;"></button>
+                <input type="text" class="form-control form-control-sm text-success fw-bold mb-2 w-75 border-success" name="fac_dyn_${id}_name" placeholder="추가할 시설명 (예: 환풍기)" required>
+                <div class="row g-2">
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">연도</span><input type="number" class="form-control" name="fac_dyn_${id}_yr"><span class="input-group-text unit-fix">년</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">규모</span><input type="number" class="form-control" name="fac_dyn_${id}_scale"><span class="input-group-text unit-fix">평</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">비용</span><input type="number" class="form-control" name="fac_dyn_${id}_cost"><span class="input-group-text unit-fix" style="font-size:0.7rem;">천원</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix" style="width:50px;">비율</span><input type="number" class="form-control" name="fac_dyn_${id}_ratio"><span class="input-group-text unit-fix">%</span></div></div>
+                </div>
+            </div>
+        </div>`;
+        document.getElementById('dynamic-fac-container').insertAdjacentHTML('beforeend', html);
+    }
+
+    // ✨ 동적 기계장비 추가 함수
+    function addMachinery() {
+        const id = Date.now();
+        const html = `
+        <div class="col-12" id="box_mac_dyn_${id}">
+            <div class="item-box bg-white border border-primary border-opacity-25 border-start border-4 border-start-primary shadow-sm position-relative">
+                <button type="button" class="btn-close position-absolute top-0 end-0 m-2" onclick="document.getElementById('box_mac_dyn_${id}').remove()" style="font-size: 0.7rem;"></button>
+                <input type="text" class="form-control form-control-sm text-primary fw-bold mb-2 w-75 border-primary" name="mac_dyn_${id}_name" placeholder="추가할 기계명 (예: 지게차)" required>
+                <div class="row g-2">
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">연도</span><input type="number" class="form-control" name="mac_dyn_${id}_yr"><span class="input-group-text unit-fix">년</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">대수</span><input type="number" class="form-control" name="mac_dyn_${id}_cnt"><span class="input-group-text unit-fix">대</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">비용</span><input type="number" class="form-control" name="mac_dyn_${id}_cost"><span class="input-group-text unit-fix" style="font-size:0.7rem;">천원</span></div></div>
+                    <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-fix text-primary" style="width:50px;">비율</span><input type="number" class="form-control" name="mac_dyn_${id}_ratio"><span class="input-group-text unit-fix">%</span></div></div>
+                </div>
+            </div>
+        </div>`;
+        document.getElementById('dynamic-mac-container').insertAdjacentHTML('beforeend', html);
+    }
+</script>
+</body>
+</html>

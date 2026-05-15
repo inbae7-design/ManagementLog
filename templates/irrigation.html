@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관주 및 영양제 관리 - 스마트 영농일지</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f4f6f3; color: #333; padding-bottom: 80px;}
+        .navbar-custom { background-color: #2e4d2e; border-bottom: 2px solid #1a2f1a; }
+        .card-custom { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; border-left: 4px solid #0d6efd; }
+        .nav-tabs .nav-link.active { font-weight: bold; color: #0d6efd; border-bottom: 3px solid #0d6efd; }
+        .nav-tabs .nav-link { color: #6c757d; border: none; }
+        
+        .fc { font-family: 'Noto Sans KR', sans-serif; }
+        .fc-toolbar-title { font-size: 1.15rem !important; font-weight: 900 !important; color: #0d6efd; }
+        .fc-button-primary { background-color: #0d6efd !important; border-color: #0d6efd !important; text-transform: capitalize; border-radius: 8px !important; }
+        .fc-button-primary:hover { background-color: #0b5ed7 !important; }
+        .fc-theme-standard th { padding: 10px 0; background: #f8f9fa; color: #495057; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #f0f0f0; }
+        .fc-day-today { background-color: rgba(13, 110, 253, 0.08) !important; }
+        .fc-event { border-radius: 6px; padding: 3px 5px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: none; cursor: pointer;}
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-3 shadow-sm">
+  <div class="container" style="max-width: 800px;">
+    <a href="/farming_menu" class="text-light text-decoration-none fw-bold fs-5">
+        <span class="me-1">⬅️</span> 💧 관주 / 영양제 관리
+    </a>
+  </div>
+</nav>
+
+<div class="container" style="max-width: 800px;">
+
+    <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active w-100 px-2" id="record-tab" data-bs-toggle="tab" data-bs-target="#record" type="button" role="tab">관주 기록</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link w-100 px-2" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">통계/달력</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link w-100 px-2" id="db-tab" data-bs-toggle="tab" data-bs-target="#db" type="button" role="tab">영양제 DB</button></li>
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+        
+        <div class="tab-pane fade show active" id="record" role="tabpanel">
+            
+            <div class="text-end mb-3 px-1">
+                <a href="/export_irrigation" class="btn btn-sm btn-outline-primary fw-bold shadow-sm">📥 관주 기록 엑셀 저장</a>
+            </div>
+
+            <div class="card card-custom border-primary mb-4" style="border-left: none; border-top: 4px solid #0d6efd;">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3 text-primary">➕ 새로운 관주 기록 추가</h6>
+                    <form action="/add_irrigation" method="POST">
+                        <div class="mb-2"><label class="fw-bold small">관주 일자</label><input type="date" name="date" class="form-control form-control-sm" required></div>
+                        <div class="mb-2"><label class="fw-bold small">구역/동</label><input type="text" name="area" class="form-control form-control-sm" placeholder="예: 1동, 전체"></div>
+                        <div class="mb-3"><label class="fw-bold small">관주량 (물량)</label><input type="text" name="water_amount" class="form-control form-control-sm" placeholder="예: 10톤, 20분" required></div>
+                        
+                        <label class="fw-bold text-primary small mb-1">투입 영양제 선택 (맹물 관주 시 생략)</label>
+                        <div id="nutrient-select-container">
+                            <div class="input-group input-group-sm mb-2">
+                                <select name="nutrients[]" class="form-select">
+                                    <option value="">-- 선택 (맹물) --</option>
+                                    {% for db in db_list %}<option value="{{ db.2 }}">{{ db.2 }}</option>{% endfor %}
+                                </select>
+                                <input type="number" name="nutrient_amount[]" class="form-control text-center" placeholder="투입량" step="0.1" style="max-width: 70px;">
+                                <select name="nutrient_unit[]" class="form-select" style="max-width: 60px;">
+                                    <option value="L">L</option><option value="kg">kg</option><option value="ml">ml</option><option value="g">g</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-1 mb-3" onclick="addNutrientRow('nutrient-select-container')">+ 다른 영양제 추가하기</button>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">기록 저장</button>
+                    </form>
+                </div>
+            </div>
+
+            <h6 class="fw-bold mb-2 text-dark px-1">📋 관주 기록 내역</h6>
+            <div class="d-flex flex-column gap-2">
+                {% for ev in events %}
+                <div class="card card-custom">
+                    <div class="card-body py-2 px-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
+                            <span class="fw-bold text-dark">{{ ev.date }} <small class="text-muted">({{ ev.area }})</small></span>
+                            <div>
+                                <script id="irri-items-{{ ev.event_id }}" type="application/json">{{ ev.get('items') | tojson | safe }}</script>
+                                <button class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold me-1" onclick="openIrriEdit('{{ ev.event_id }}', '{{ ev.date }}', '{{ ev.area }}', '{{ ev.water_amount }}')">수정</button>
+                                <a href="/delete_irrigation_event/{{ ev.event_id }}" class="btn btn-sm btn-outline-danger py-0 px-2 fw-bold" onclick="return confirm('이 관주 기록을 삭제하시겠습니까?');">삭제</a>
+                            </div>
+                        </div>
+                        <div class="small fw-bold text-primary mb-1 mt-2">💦 물량: {{ ev.water_amount }}</div>
+                        <ul class="list-unstyled m-0 small mt-1">
+                            {% if ev.get('items')|length > 0 %}
+                                {% for item in ev.get('items') %}
+                                <li class="d-flex justify-content-between">
+                                    <span>- {{ item.get('name') }}</span>
+                                    <span class="text-muted">{{ item.get('amount') }} {{ item.get('unit') }}</span>
+                                </li>
+                                {% endfor %}
+                            {% else %}
+                                <li class="text-muted fst-italic">- 맹물 관주</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted bg-white rounded shadow-sm border">관주 기록이 없습니다.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="stats" role="tabpanel">
+            
+            <div class="alert alert-primary fw-bold text-center mb-4 shadow-sm" style="background-color: #e6f2ff; color: #004085; border: 1px solid #c3e0ff;">
+                💧 누적 관주 횟수: <span style="font-size: 1.15rem;">{{ events|length }}</span>회
+            </div>
+
+            <div class="card card-custom mb-4" style="border-left-color: #805ad5;">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-2 text-dark">📊 많이 사용한 영양제 (투입횟수 기준)</h6>
+                    <canvas id="irriChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="card card-custom mb-4" style="border-left-color: #38a169;">
+                <div class="card-body p-2">
+                    <h6 class="fw-bold mb-3 text-dark mt-2 ms-2">📅 관주 달력</h6>
+                    <div id="calendar" class="bg-white p-2 rounded"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="tab-pane fade" id="db" role="tabpanel">
+            <div class="text-end mb-3 px-1">
+                <a href="/export_nutrient_db" class="btn btn-sm btn-primary fw-bold shadow-sm">📥 영양제 DB 엑셀 저장</a>
+            </div>
+
+            <div class="card card-custom border-primary mb-4" style="border-left: none; border-top: 4px solid #0d6efd;">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3 text-primary">➕ 내 농장 전용 영양제 등록</h6>
+                    <form action="/add_nutrient_db" method="POST">
+                        <div class="row g-2">
+                            <div class="col-12"><input type="text" name="name" class="form-control form-control-sm" placeholder="영양제명 (예: 아미노산)" required></div>
+                            <div class="col-6"><input type="text" name="type" class="form-control form-control-sm" placeholder="분류 (선택)"></div>
+                            <div class="col-6"><input type="text" name="default_unit" class="form-control form-control-sm" placeholder="기본단위 (예: L, kg)" value="L"></div>
+                            <div class="col-12"><button type="submit" class="btn btn-sm btn-primary w-100 fw-bold">DB 목록에 저장하기</button></div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <h6 class="fw-bold mb-2 text-dark px-1">📋 등록된 영양제 목록</h6>
+            <div class="table-responsive bg-white rounded shadow-sm border mb-3">
+                <table class="table table-hover text-center m-0 align-middle" style="font-size: 0.85rem;">
+                    <thead class="table-light"><tr><th>자재/영양제명</th><th>분류</th><th>기본단위</th><th>삭제</th></tr></thead>
+                    <tbody>
+                        {% for db in db_list %}
+                        <tr>
+                            <td class="fw-bold">{{ db.2 }}</td><td>{{ db.3 }}</td><td>{{ db.4 }}</td>
+                            <td><a href="/delete/nutrient_db/{{ db.0 }}" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="return confirm('삭제하시겠습니까?');">X</a></td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="py-4 text-muted">등록된 영양제 DB가 없습니다.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="editRecordModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="/edit_irrigation" method="POST">
+          <input type="hidden" name="event_id" id="edit_event_id">
+          <div class="modal-header bg-success text-white py-2">
+            <h6 class="modal-title fw-bold">관주 기록 수정</h6>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body small">
+            <div class="mb-2"><label class="fw-bold">관주 일자</label><input type="date" name="date" id="edit_date" class="form-control form-control-sm" required></div>
+            <div class="mb-2"><label class="fw-bold">구역/동</label><input type="text" name="area" id="edit_area" class="form-control form-control-sm"></div>
+            <div class="mb-3"><label class="fw-bold">관주량 (물량)</label><input type="text" name="water_amount" id="edit_water" class="form-control form-control-sm" required></div>
+            <label class="fw-bold text-primary mb-1">투입 영양제 수정</label>
+            <div id="edit-nutrient-select-container"></div>
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-1" onclick="addNutrientRow('edit-nutrient-select-container')">+ 영양제 줄 추가하기</button>
+          </div>
+          <div class="modal-footer py-1"><button type="submit" class="btn btn-success w-100 fw-bold">수정 완료</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="nutrient-row-template" style="display: none;">
+    <div class="input-group input-group-sm mb-2">
+        <select name="nutrients[]" class="form-select">
+            <option value="">-- 선택 (맹물) --</option>
+            {% for db in db_list %}<option value="{{ db.2 }}">{{ db.2 }}</option>{% endfor %}
+        </select>
+        <input type="number" name="nutrient_amount[]" class="form-control text-center" placeholder="투입량" step="0.1" style="max-width: 70px;">
+        <select name="nutrient_unit[]" class="form-select" style="max-width: 60px;">
+            <option value="L">L</option><option value="kg">kg</option><option value="ml">ml</option><option value="g">g</option>
+        </select>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.querySelector('input[type="date"]').value = new Date().toISOString().substring(0, 10);
+    function addNutrientRow(containerId) {
+        const container = document.getElementById(containerId);
+        const row = document.getElementById('nutrient-row-template').firstElementChild.cloneNode(true);
+        container.appendChild(row);
+    }
+
+    let editModal;
+    document.addEventListener('DOMContentLoaded', function() { editModal = new bootstrap.Modal(document.getElementById('editRecordModal')); });
+
+    function openIrriEdit(eventId, date, area, water) {
+        document.getElementById('edit_event_id').value = eventId;
+        document.getElementById('edit_date').value = date;
+        document.getElementById('edit_area').value = area;
+        document.getElementById('edit_water').value = water;
+        const container = document.getElementById('edit-nutrient-select-container');
+        container.innerHTML = '';
+        const items = JSON.parse(document.getElementById('irri-items-' + eventId).textContent);
+        if(items.length === 0) {
+            addNutrientRow('edit-nutrient-select-container');
+        } else {
+            items.forEach(item => {
+                const row = document.getElementById('nutrient-row-template').firstElementChild.cloneNode(true);
+                row.querySelector('select[name="nutrients[]"]').value = item.name;
+                row.querySelector('input[name="nutrient_amount[]"]').value = item.amount;
+                row.querySelector('select[name="nutrient_unit[]"]').value = item.unit;
+                container.appendChild(row);
+            });
+        }
+        editModal.show();
+    }
+
+    let isCalendarRendered = false;
+    document.getElementById('stats-tab').addEventListener('shown.bs.tab', function () {
+        if (!isCalendarRendered) {
+            const eventsArr = new Array();
+            {% for ev in events %}
+                eventsArr.push({
+                    title: "({{ ev.area }}) {{ '영양제' if ev.get('item_count')|int > 0 else '맹물' }}",
+                    start: "{{ ev.date }}",
+                    backgroundColor: "{{ '#0d6efd' if ev.get('item_count')|int > 0 else '#805ad5' }}"
+                });
+            {% endfor %}
+            
+            const calendarEl = document.getElementById('calendar');
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                events: eventsArr,
+                height: 'auto',
+                contentHeight: 400,
+                headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
+                locale: 'ko',
+                dayMaxEvents: true
+            });
+            calendar.render();
+
+            const ctx = document.getElementById('irriChart').getContext('2d');
+            const labels = {{ stats_labels|safe }};
+            const data = {{ stats_counts|safe }};
+            const bgColors = new Array('#0d6efd', '#0dcaf0', '#38a169', '#805ad5', '#e53e3e', '#dd6b20', '#d69e2e', '#ed64a6');
+            
+            if (labels.length > 0) {
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: { 
+                        labels: labels, 
+                        datasets: new Array({ 
+                            label: '사용 횟수', 
+                            data: data, 
+                            backgroundColor: bgColors, 
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: 'rgba(0,0,0,0.1)'
+                        }) 
+                    },
+                    options: { 
+                        responsive: true, 
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: { padding: 10, titleFont: { size: 13 }, bodyFont: { size: 14, weight: 'bold' }, callbacks: { label: function(context) { return ' ' + context.raw + '회'; } } }
+                        }, 
+                        scales: { 
+                            y: { beginAtZero: true, grid: { color: '#e2e8f0', borderDash: new Array(5, 5) }, ticks: { stepSize: 1 } },
+                            x: { grid: { display: false } }
+                        } 
+                    }
+                });
+            } else {
+                document.getElementById('irriChart').outerHTML = '<div class="text-center text-muted small py-3">차트 데이터가 없습니다.</div>';
+            }
+            isCalendarRendered = true;
+        }
+    });
+</script>
+</body>
+</html>

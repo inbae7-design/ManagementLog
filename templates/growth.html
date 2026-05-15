@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>생육 시뮬레이션 및 데이터 대시보드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f1f5f9; color: #334155; padding-bottom: 50px; }
+        .navbar-custom { background-color: #166534; border-bottom: 2px solid #14532d; }
+        .card-custom { border-radius: 16px; border: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); background: #fff; height: 100%; }
+        
+        .input-group-text { font-weight: bold; font-size: 0.75rem; padding: 0.25rem 0.4rem; justify-content: center; }
+        .label-col { width: 70px; background-color: #f8f9fa; color: #166534; letter-spacing: -0.5px;}
+        .unit-col { width: 32px; background-color: #e2e8f0; color: #475569; font-size: 0.7rem; }
+        .form-control-sm, .form-select-sm { font-size: 0.85rem; font-weight: bold; padding: 0.25rem 0.4rem; }
+
+        /* ✨ 정밀 인포그래픽 전용 스타일 ✨ */
+        .info-container { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; }
+        
+        /* 시각화 영역: 세로 스크롤 허용, 모바일에서 가로 짤림 방지 */
+        .info-visual-wrap { height: 450px; display: flex; justify-content: center; align-items: flex-start; overflow-y: auto; overflow-x: hidden; background-color: #ffffff; position: relative;}
+        
+        #growthSvg { width: 100%; min-height: 500px; display: block; }
+        
+        .svg-data-text { font-family: 'Noto Sans KR', sans-serif; font-weight: 900; filter: drop-shadow(1px 1px 1px rgba(255,255,255,0.9)); }
+        .internode-text { fill: #2563eb; font-size: 11px; } 
+        .leaf-text { fill: #14532d; font-size: 10px; text-anchor: middle; } 
+
+        .trend-table th, .trend-table td { padding: 0.2rem 0.1rem; border-bottom: 1px dashed #cbd5e1; }
+        .trend-table tr:last-child td { border-bottom: none; }
+        
+        /* 표 모바일 최적화: 폰트 크기 축소 */
+        .table-wrap { overflow-x: auto; white-space: nowrap; font-size: 0.7rem; border: 1px solid #dee2e6; border-radius: 12px;}
+        .table th { background-color: #f0fdf4 !important; color: #166534; font-weight: 900; vertical-align: middle; border-bottom: 2px solid #bbf7d0;}
+        .table td { vertical-align: middle; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-4 shadow-sm">
+  <div class="container-fluid d-flex justify-content-between align-items-center" style="max-width: 1300px;">
+    <a href="/farming_menu" class="text-light text-decoration-none fw-bold fs-5">
+        <span class="me-1">⬅️</span> 🥒 생육 대시보드
+    </a>
+    <div>
+        <a href="/export_growth" class="btn btn-sm btn-outline-light rounded px-3 fw-bold shadow-sm">📥 엑셀 다운로드</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid mb-4" style="max-width: 1300px;">
+    <div class="row g-3">
+        <div class="col-12 col-lg-5">
+            <div class="card-custom p-2 p-md-3 border-success info-container" style="border-top: 4px solid #22c55e;">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                    <h5 class="fw-bold text-success mb-0" style="white-space: nowrap;">📊 정밀 생육 시각화</h5>
+                    <span id="infoBadge" class="badge bg-success shadow-sm fs-6">데이터 로딩중</span>
+                </div>
+                
+                <div class="row g-1 align-items-start mt-2">
+                    <div class="col-7 col-md-6 pe-1">
+                        <div class="info-visual-wrap rounded shadow-sm border border-light">
+                            <svg id="growthSvg"></svg>
+                        </div>
+                    </div>
+                    
+                    <div class="col-5 col-md-6 ps-1">
+                        <div class="card border-0 shadow-sm mb-2">
+                            <div class="card-header bg-success text-white py-1 px-1 fw-bold text-center" style="font-size: 0.75rem;">🌿 잎 성장(5회)</div>
+                            <div class="card-body p-1 bg-white rounded-bottom">
+                                <table class="table table-borderless trend-table text-center mb-0" style="font-size: 0.7rem;">
+                                    <thead><tr class="text-secondary fw-bold" style="font-size: 0.65rem;"><th>일자</th><th>장(cm)</th><th>폭(cm)</th></tr></thead>
+                                    <tbody id="infoLeafTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header text-white py-1 px-1 fw-bold text-center" style="background-color: #3b82f6; font-size: 0.75rem;">📏 줄기 성장(5회)</div>
+                            <div class="card-body p-1 bg-white rounded-bottom">
+                                <table class="table table-borderless trend-table text-center mb-0" style="font-size: 0.7rem;">
+                                    <thead><tr class="text-secondary fw-bold" style="font-size: 0.65rem;"><th>일자</th><th>절간</th><th>굵기</th></tr></thead>
+                                    <tbody id="infoStemTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+            <div class="card-custom p-3 border-primary" style="border-top: 4px solid #3b82f6;">
+                <h6 class="fw-bold text-dark mb-3">📝 신규 조사 데이터 입력</h6>
+                <form action="/add_growth" method="post">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><input type="date" class="form-control form-control-sm border-primary" name="date" required id="todayDate"></div>
+                        <div class="col-6"><select class="form-select form-select-sm border-primary" name="house_name" required><option value="" disabled selected>조사 농가(하우스)</option>{% for h in houses %}<option value="{{ h }}">{{ h }}</option>{% else %}<option value="전체">전체 / 기본</option>{% endfor %}</select></div>
+                    </div>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-col">개체번호</span><input type="number" class="form-control form-control-sm text-end" name="plant_num" placeholder="예: 1"></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">착과습성</span><select class="form-select form-select-sm" name="fruiting_habit"><option value="">선택</option><option value="어미">어미</option><option value="어미+아들">어미+아들</option><option value="아들">아들</option></select></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">덩굴구분</span><select class="form-select form-select-sm" name="stem_type"><option value="">선택</option><option value="어미1">어미①</option><option value="아들2">아들②</option></select></div></div>
+                    </div>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">본주마디</span><input type="number" class="form-control form-control-sm text-end" name="main_node"></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">아들주마디</span><input type="number" class="form-control form-control-sm text-end" name="sub_node"></div></div>
+                    </div>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">절간장</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="internode_len"><span class="input-group-text unit-col">cm</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">줄기굵기</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="stem_thick"><span class="input-group-text unit-col">mm</span></div></div>
+                    </div>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">엽장</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="leaf_length"><span class="input-group-text unit-col">cm</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">엽폭</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="leaf_width"><span class="input-group-text unit-col">cm</span></div></div>
+                        <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-col">엽상태</span><select class="form-select form-select-sm" name="leaf_status"><option value="">선택</option><option value="1">1 (정상)</option><option value="2">2 (적엽)</option><option value="3">3 (노엽)</option></select></div></div>
+                    </div>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">암꽃유무</span><select class="form-select form-select-sm" name="female_flower"><option value="">선택</option><option value="1">1(유)</option><option value="0">0(무)</option></select></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">수확유무</span><select class="form-select form-select-sm" name="harvest"><option value="">선택</option><option value="1">1(수확)</option><option value="2">2(적과)</option></select></div></div>
+                        <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-col">열매상태</span><select class="form-select form-select-sm" name="fruit_status"><option value="">선택</option><option value="0">0(비품)</option><option value="1">1(미성숙)</option><option value="2">2(성숙)</option></select></div></div>
+                    </div>
+                    
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">과 곡선</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="fruit_curved"></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">과 직선</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="fruit_straight"></div></div>
+                        <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-col">과폭</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="fruit_width"><span class="input-group-text unit-col">mm</span></div></div>
+                    </div>
+                    
+                    <div class="row g-2 mb-2 border-top pt-2 mt-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col text-primary">평균온도</span><input type="number" step="0.1" class="form-control form-control-sm text-end text-primary" name="avg_temp"><span class="input-group-text unit-col">℃</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col text-primary">평균습도</span><input type="number" step="0.1" class="form-control form-control-sm text-end text-primary" name="avg_humidity"><span class="input-group-text unit-col">%</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text bg-primary text-white fw-bold" style="width: 70px; justify-content: center;">DIF</span><input type="number" step="0.1" class="form-control form-control-sm text-end bg-primary bg-opacity-10" name="dif"><span class="input-group-text unit-col">℃</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text bg-danger text-white fw-bold" style="width: 70px; justify-content: center;">적산온도</span><input type="number" step="0.1" class="form-control form-control-sm text-end bg-danger bg-opacity-10" name="acc_temp"><span class="input-group-text unit-col">℃</span></div></div>
+                    </div>
+                    
+                    <div class="input-group input-group-sm mb-3">
+                        <span class="input-group-text bg-secondary text-white fw-bold" style="width: 70px; justify-content: center;">비고</span>
+                        <input type="text" class="form-control form-control-sm" name="note" placeholder="특이사항 메모">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm py-2 fs-6 mt-2">💾 데이터 저장 및 인포그래픽 갱신</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid" style="max-width: 1300px;">
+    <div class="card shadow-sm rounded border-0 mb-4 overflow-hidden">
+        <div class="table-wrap bg-white">
+            <table class="table table-hover text-center mb-0">
+                <thead class="align-middle shadow-sm">
+                    <tr>
+                        <th rowspan="2" style="min-width: 55px; padding: 0.5rem;">관리</th>
+                        <th rowspan="2">조사일자</th><th rowspan="2">개체<br>번호</th><th rowspan="2">착과습성</th><th rowspan="2">덩굴구분</th>
+                        <th colspan="2" class="text-success border-bottom-0">마디 번호</th>
+                        <th rowspan="2">절간장<br>(cm)</th><th rowspan="2">줄기굵기<br>(mm)</th>
+                        <th colspan="3" class="text-success border-bottom-0">잎 상태</th>
+                        <th rowspan="2">암꽃<br>(1/0)</th><th rowspan="2">수확<br>(1/2)</th><th rowspan="2">열매<br>(0/1/2)</th>
+                        <th colspan="3" class="text-primary border-bottom-0">과측정</th>
+                        <th rowspan="2" class="text-danger">적산온도</th>
+                    </tr>
+                    <tr>
+                        <th>본주</th><th>아들주</th>
+                        <th>엽장</th><th>엽폭</th><th>상태</th>
+                        <th>곡선</th><th>직선</th><th>과폭</th>
+                    </tr>
+                </thead>
+                <tbody id="growth_tbody">
+                    {% for g in g_data %}
+                    <tr>
+                        <td class="align-middle px-2">
+                            <div class="d-flex flex-column gap-1 justify-content-center">
+                                <button class="btn btn-sm btn-outline-secondary py-0 px-2 fw-bold" style="font-size: 0.7rem;" onclick="openEditGrowth('{{ g.0 }}', '{{ g.2 }}', '{{ g.3 }}', '{{ g.4 }}', '{{ g.5 }}', '{{ g.6 }}', '{{ g.7 }}', '{{ g.8 }}', '{{ g.9 }}', '{{ g.10 }}', '{{ g.11 }}', '{{ g.12 }}', '{{ g.13 }}', '{{ g.14 }}', '{{ g.15 }}', '{{ g.16 }}', '{{ g.17 }}', '{{ g.18 }}', '{{ g.19 }}', '{{ g.20 }}', '{{ g.21 }}', '{{ g.22 }}', '{{ g.23 }}', '{{ g.24 }}')">수정</button>
+                                <a href="/delete_growth/{{ g.0 }}" class="btn btn-sm btn-outline-danger py-0 px-2 fw-bold" style="font-size: 0.7rem;" onclick="return confirm('삭제하시겠습니까?');">삭제</a>
+                            </div>
+                        </td>
+                        <td><strong class="text-dark">{{ g.2 }}</strong></td>
+                        <td class="fw-bold">{{ g.4 if g.4 != None else '-' }}</td>
+                        <td>{{ g.5 if g.5 != None else '-' }}</td>
+                        <td>{{ g.6 if g.6 != None else '-' }}</td>
+                        <td class="fw-bold text-success fs-6">{{ g.7 if g.7 != None else '-' }}</td>
+                        <td class="fw-bold text-primary">{{ g.8 if g.8 != None else '-' }}</td>
+                        <td>{{ g.9 if g.9 != None else '-' }}</td>
+                        <td>{{ g.10 if g.10 != None else '-' }}</td>
+                        <td>{{ g.11 if g.11 != None else '-' }}</td>
+                        <td>{{ g.12 if g.12 != None else '-' }}</td>
+                        <td>{{ g.13 if g.13 != None else '-' }}</td>
+                        <td>{{ g.14 if g.14 != None else '-' }}</td>
+                        <td>{{ g.15 if g.15 != None else '-' }}</td>
+                        <td>{{ g.16 if g.16 != None else '-' }}</td>
+                        <td>{{ g.17 if g.17 != None else '-' }}</td>
+                        <td>{{ g.18 if g.18 != None else '-' }}</td>
+                        <td>{{ g.19 if g.19 != None else '-' }}</td>
+                        <td class="text-danger fw-bold">{{ g.23 if g.23 != None else '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="19" class="py-5 text-muted fw-bold">기록된 조사데이터가 없습니다.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editGrowthModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white py-2">
+                <h6 class="modal-title fw-bold">생육 데이터 수정</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light px-2 py-3">
+                <form action="/edit_growth" method="post">
+                    <input type="hidden" name="id" id="eg_id">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><input type="date" class="form-control form-control-sm border-primary" name="date" id="eg_date" required></div>
+                        <div class="col-6"><select class="form-select form-select-sm border-primary" name="house_name" id="eg_house" required>{% for h in houses %}<option value="{{ h }}">{{ h }}</option>{% else %}<option value="전체">전체 / 기본</option>{% endfor %}</select></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-col">개체번호</span><input type="number" class="form-control form-control-sm text-end" name="plant_num" id="eg_pnum" placeholder="예: 1"></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">착과습성</span><select class="form-select form-select-sm" name="fruiting_habit" id="eg_fhab"><option value="">선택</option><option value="어미">어미</option><option value="어미+아들">어미+아들</option><option value="아들">아들</option></select></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">덩굴구분</span><select class="form-select form-select-sm" name="stem_type" id="eg_stype"><option value="">선택</option><option value="어미1">어미1</option><option value="아들2">아들2</option></select></div></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">본주마디</span><input type="number" class="form-control form-control-sm text-end" name="main_node" id="eg_mnode"></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">아들주마디</span><input type="number" class="form-control form-control-sm text-end" name="sub_node" id="eg_snode"></div></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">절간장</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="internode_len" id="eg_ilen"><span class="input-group-text unit-col">cm</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">줄기굵기</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="stem_thick" id="eg_sthick"><span class="input-group-text unit-col">mm</span></div></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">엽장</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="leaf_length" id="eg_llen"><span class="input-group-text unit-col">cm</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">엽폭</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="leaf_width" id="eg_lwid"><span class="input-group-text unit-col">cm</span></div></div>
+                        <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-col">엽상태</span><select class="form-select form-select-sm" name="leaf_status" id="eg_lstat"><option value="">선택</option><option value="1">1 (정상)</option><option value="2">2 (적엽)</option><option value="3">3 (노엽)</option></select></div></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">암꽃유무</span><select class="form-select form-select-sm" name="female_flower" id="eg_fflow"><option value="">선택</option><option value="1">1(유)</option><option value="0">0(무)</option></select></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">수확유무</span><select class="form-select form-select-sm" name="harvest" id="eg_harv"><option value="">선택</option><option value="1">1(수확)</option><option value="2">2(적과)</option></select></div></div>
+                        <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-col">열매상태</span><select class="form-select form-select-sm" name="fruit_status" id="eg_fstat"><option value="">선택</option><option value="0">0(비품)</option><option value="1">1(미성숙)</option><option value="2">2(성숙)</option></select></div></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">과 곡선</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="fruit_curved" id="eg_fcurv"></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col">과 직선</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="fruit_straight" id="eg_fstr"></div></div>
+                        <div class="col-12"><div class="input-group input-group-sm"><span class="input-group-text label-col">과폭</span><input type="number" step="0.1" class="form-control form-control-sm text-end" name="fruit_width" id="eg_fwid"><span class="input-group-text unit-col">mm</span></div></div>
+                    </div>
+                    <div class="row g-2 mb-2 border-top pt-2 mt-2">
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col text-primary">평균온도</span><input type="number" step="0.1" class="form-control form-control-sm text-end text-primary" name="avg_temp" id="eg_atemp"><span class="input-group-text unit-col">℃</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text label-col text-primary">평균습도</span><input type="number" step="0.1" class="form-control form-control-sm text-end text-primary" name="avg_humidity" id="eg_ahum"><span class="input-group-text unit-col">%</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text bg-primary text-white fw-bold" style="width: 70px; justify-content: center;">DIF</span><input type="number" step="0.1" class="form-control form-control-sm text-end bg-primary bg-opacity-10" name="dif" id="eg_dif"><span class="input-group-text unit-col">℃</span></div></div>
+                        <div class="col-6"><div class="input-group input-group-sm"><span class="input-group-text bg-danger text-white fw-bold" style="width: 70px; justify-content: center;">적산온도</span><input type="number" step="0.1" class="form-control form-control-sm text-end bg-danger bg-opacity-10" name="acc_temp" id="eg_acc"><span class="input-group-text unit-col">℃</span></div></div>
+                    </div>
+                    <input type="text" class="form-control form-control-sm mb-3" name="note" id="eg_note" placeholder="비고">
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2">수정 내역 저장</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('todayDate').valueAsDate = new Date();
+
+    function openEditGrowth(id, date, house, pnum, fhab, stype, mnode, snode, ilen, sthick, llen, lwid, lstat, fflow, harv, fstat, fcurv, fstr, fwid, atemp, ahum, dif, acc, note) {
+        document.getElementById('eg_id').value = id; document.getElementById('eg_date').value = date; document.getElementById('eg_house').value = house; document.getElementById('eg_pnum').value = pnum !== 'None' ? pnum : ''; document.getElementById('eg_fhab').value = fhab !== 'None' ? fhab : ''; document.getElementById('eg_stype').value = stype !== 'None' ? stype : ''; document.getElementById('eg_mnode').value = mnode !== 'None' ? mnode : ''; document.getElementById('eg_snode').value = snode !== 'None' ? snode : ''; document.getElementById('eg_ilen').value = ilen !== 'None' ? ilen : ''; document.getElementById('eg_sthick').value = sthick !== 'None' ? sthick : ''; document.getElementById('eg_llen').value = llen !== 'None' ? llen : ''; document.getElementById('eg_lwid').value = lwid !== 'None' ? lwid : ''; document.getElementById('eg_lstat').value = lstat !== 'None' ? lstat : ''; document.getElementById('eg_fflow').value = fflow !== 'None' ? fflow : ''; document.getElementById('eg_harv').value = harv !== 'None' ? harv : ''; document.getElementById('eg_fstat').value = fstat !== 'None' ? fstat : ''; document.getElementById('eg_fcurv').value = fcurv !== 'None' ? fcurv : ''; document.getElementById('eg_fstr').value = fstr !== 'None' ? fstr : ''; document.getElementById('eg_fwid').value = fwid !== 'None' ? fwid : ''; document.getElementById('eg_atemp').value = atemp !== 'None' ? atemp : ''; document.getElementById('eg_ahum').value = ahum !== 'None' ? ahum : ''; document.getElementById('eg_dif').value = dif !== 'None' ? dif : ''; document.getElementById('eg_acc').value = acc !== 'None' ? acc : ''; document.getElementById('eg_note').value = note !== 'None' ? note : '';
+        new bootstrap.Modal(document.getElementById('editGrowthModal')).show();
+    }
+
+    const rawData = [
+        {% for g in g_data %}
+            { 
+                date: '{{ g.2 }}'.substring(5),
+                nodes: {{ g.7 if g.7 != None else 0 }},
+                ilen: parseFloat('{{ g.9 if g.9 != None else 0 }}'), 
+                sthick: '{{ g.10 if g.10 != None else "-" }}',
+                llen: parseFloat('{{ g.11 if g.11 != None else 0 }}'), 
+                lwid: parseFloat('{{ g.12 if g.12 != None else 0 }}')
+            },
+        {% endfor %}
+    ];
+    
+    const historyData = [...rawData].reverse(); 
+
+    // ✨ 정밀 시각화 모바일 최적화 엔진 ✨
+    function drawPrecisionVine() {
+        const svg = document.getElementById('growthSvg');
+        svg.innerHTML = ''; 
+
+        if (historyData.length === 0) {
+            document.getElementById('infoBadge').innerText = "데이터 없음";
+            return;
+        }
+
+        // ✨ 회장님 아이디어 적용: 전체 데이터 중 가장 큰 마디수 값을 무조건 추출
+        const highestNode = Math.max(...historyData.map(d => d.nodes || 0));
+        document.getElementById('infoBadge').innerText = `최고 마디수: ${highestNode}`;
+
+        // 시각화를 위한 데이터 전처리 (마디수 기준 내림차순 정렬)
+        let uniqueNodesMap = new Map();
+        for (let d of historyData) {
+            if (d.nodes > 0 && !uniqueNodesMap.has(d.nodes)) {
+                uniqueNodesMap.set(d.nodes, d);
+            }
+        }
+        let vizRecords = Array.from(uniqueNodesMap.values()).sort((a, b) => b.nodes - a.nodes);
+        
+        const PIXEL_PER_CM_STEM = 6;  
+        const PIXEL_PER_CM_LEAF = 1.8; 
+        const MAX_LEAVES = 15; 
+
+        // 모바일 공간 확보를 위해 중심축을 왼쪽으로 이동 (130 -> 105)
+        const centerX = 105; 
+        let currentY = 30;   
+
+        const tipCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        tipCircle.setAttribute("cx", centerX);
+        tipCircle.setAttribute("cy", currentY);
+        tipCircle.setAttribute("r", "5");
+        tipCircle.setAttribute("fill", "#84cc16"); 
+        tipCircle.setAttribute("stroke", "#4d7c0f");
+        svg.appendChild(tipCircle);
+
+        const tipText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        tipText.setAttribute("x", centerX);
+        tipText.setAttribute("y", currentY - 12);
+        tipText.setAttribute("font-size", "10");
+        tipText.setAttribute("font-weight", "bold");
+        tipText.setAttribute("fill", "#14532d");
+        tipText.setAttribute("text-anchor", "middle");
+        tipText.textContent = "생장점";
+        svg.appendChild(tipText);
+
+        let lastActualNodeNum = highestNode; 
+
+        for (let i = 0; i < MAX_LEAVES; i++) {
+            
+            if (i < vizRecords.length) {
+                const record = vizRecords[i];
+                lastActualNodeNum = record.nodes; 
+                
+                const iLen = record.ilen > 0 ? record.ilen : 5.0; 
+                const lLen = record.llen > 0 ? record.llen : 15.0;
+                const lWid = record.lwid > 0 ? record.lwid : 15.0;
+                const iLenPx = iLen * PIXEL_PER_CM_STEM; 
+                
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", centerX);
+                line.setAttribute("y1", currentY);
+                line.setAttribute("x2", centerX);
+                line.setAttribute("y2", currentY + iLenPx);
+                line.setAttribute("stroke", "#15803d");
+                line.setAttribute("stroke-width", "4");
+                svg.appendChild(line);
+
+                if (record.ilen > 0) {
+                    const iText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    iText.setAttribute("x", centerX + 10); // 오른쪽 여백 축소
+                    iText.setAttribute("y", currentY + (iLenPx / 2) + 4);
+                    iText.setAttribute("class", "svg-data-text internode-text");
+                    iText.textContent = `${record.ilen}cm`;
+                    svg.appendChild(iText);
+                }
+
+                currentY += iLenPx; 
+
+                // 마디 번호선 위치 조정 (왼쪽 여백 축소)
+                const nodeLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                nodeLine.setAttribute("x1", centerX);
+                nodeLine.setAttribute("y1", currentY);
+                nodeLine.setAttribute("x2", centerX - 55); 
+                nodeLine.setAttribute("y2", currentY);
+                nodeLine.setAttribute("stroke", "#94a3b8"); 
+                nodeLine.setAttribute("stroke-width", "1");
+                nodeLine.setAttribute("stroke-dasharray", "3,3"); 
+                svg.appendChild(nodeLine);
+
+                const nodeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                nodeText.setAttribute("x", centerX - 60); 
+                nodeText.setAttribute("y", currentY + 4);
+                nodeText.setAttribute("font-size", "10");
+                nodeText.setAttribute("font-weight", "900");
+                nodeText.setAttribute("fill", "#334155"); 
+                nodeText.setAttribute("text-anchor", "end");
+                nodeText.textContent = `${record.nodes}마디`;
+                svg.appendChild(nodeText);
+
+                const nodeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                nodeCircle.setAttribute("cx", centerX);
+                nodeCircle.setAttribute("cy", currentY);
+                nodeCircle.setAttribute("r", "4");
+                nodeCircle.setAttribute("fill", "#064e3b");
+                svg.appendChild(nodeCircle);
+
+                const direction = i % 2 === 0 ? -1 : 1; 
+                const angle = direction === 1 ? 55 : -55; 
+                const lLenPx = lLen * PIXEL_PER_CM_LEAF; 
+                const lWidPx = lWid * PIXEL_PER_CM_LEAF; 
+
+                const leafGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                leafGroup.setAttribute("transform", `translate(${centerX}, ${currentY}) rotate(${angle})`);
+                
+                const leafImage = document.createElementNS("http://www.w3.org/2000/svg", "image");
+                leafImage.setAttribute("href", "/static/img/cucumber_leaf.svg"); 
+                leafImage.setAttribute("width", lWidPx);
+                leafImage.setAttribute("height", lLenPx);
+                leafImage.setAttribute("x", -lWidPx / 2);
+                leafImage.setAttribute("y", -lLenPx);
+                leafImage.setAttribute("opacity", "0.95");
+                
+                leafGroup.appendChild(leafImage);
+                svg.appendChild(leafGroup);
+
+                if (record.llen > 0 && record.lwid > 0) {
+                    const rad = (angle - 90) * (Math.PI / 180); 
+                    const textDist = lLenPx * 0.55; 
+                    const textX = centerX + Math.cos(rad) * textDist;
+                    const textY = currentY + Math.sin(rad) * textDist;
+                    
+                    const lText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    lText.setAttribute("x", textX);
+                    lText.setAttribute("y", textY);
+                    lText.setAttribute("class", "svg-data-text leaf-text");
+                    lText.textContent = `${record.llen} / ${record.lwid}`;
+                    svg.appendChild(lText);
+                }
+            } 
+            else {
+                const defaultInternodePx = 5.0 * PIXEL_PER_CM_STEM; 
+                let dummyNodeNum = lastActualNodeNum - (i - vizRecords.length + 1);
+                
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", centerX);
+                line.setAttribute("y1", currentY);
+                line.setAttribute("x2", centerX);
+                line.setAttribute("y2", currentY + defaultInternodePx);
+                line.setAttribute("stroke", "#94a3b8"); 
+                line.setAttribute("stroke-width", "3");
+                svg.appendChild(line);
+
+                currentY += defaultInternodePx;
+
+                if (dummyNodeNum > 0) {
+                    const nodeLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    nodeLine.setAttribute("x1", centerX);
+                    nodeLine.setAttribute("y1", currentY);
+                    nodeLine.setAttribute("x2", centerX - 55);
+                    nodeLine.setAttribute("y2", currentY);
+                    nodeLine.setAttribute("stroke", "#cbd5e1"); 
+                    nodeLine.setAttribute("stroke-width", "1");
+                    nodeLine.setAttribute("stroke-dasharray", "3,3");
+                    svg.appendChild(nodeLine);
+
+                    const nodeText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    nodeText.setAttribute("x", centerX - 60);
+                    nodeText.setAttribute("y", currentY + 4);
+                    nodeText.setAttribute("font-size", "10");
+                    nodeText.setAttribute("font-weight", "bold");
+                    nodeText.setAttribute("fill", "#94a3b8"); 
+                    nodeText.setAttribute("text-anchor", "end");
+                    nodeText.textContent = `${dummyNodeNum}마디`;
+                    svg.appendChild(nodeText);
+                }
+
+                const nodeCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                nodeCircle.setAttribute("cx", centerX);
+                nodeCircle.setAttribute("cy", currentY);
+                nodeCircle.setAttribute("r", "3");
+                nodeCircle.setAttribute("fill", "#64748b");
+                svg.appendChild(nodeCircle);
+                
+                const direction = i % 2 === 0 ? -1 : 1;
+                const angle = direction === 1 ? 55 : -55;
+                
+                const dummyLeafGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                dummyLeafGroup.setAttribute("transform", `translate(${centerX}, ${currentY}) rotate(${angle})`);
+                
+                const dummyLeafImage = document.createElementNS("http://www.w3.org/2000/svg", "image");
+                dummyLeafImage.setAttribute("href", "/static/img/cucumber_leaf.svg");
+                dummyLeafImage.setAttribute("width", 26); 
+                dummyLeafImage.setAttribute("height", 36); 
+                dummyLeafImage.setAttribute("x", -13); 
+                dummyLeafImage.setAttribute("y", -36); 
+                dummyLeafImage.setAttribute("opacity", "0.2"); 
+                
+                dummyLeafGroup.appendChild(dummyLeafImage);
+                svg.appendChild(dummyLeafGroup);
+            }
+        }
+
+        // 모바일 기기를 위해 viewBox 속성을 적용하여 내부 콘텐츠가 축소/확대 되도록 함
+        // 좌우 폭(240px) 기준으로 렌더링 후 화면 비율에 맞게 꽉 채움
+        svg.setAttribute('viewBox', `0 0 240 ${currentY + 50}`);
+        svg.style.height = 'auto'; 
+    }
+
+    function drawTables() {
+        if (historyData.length === 0) return;
+        const recent5 = historyData.slice(0, 5); 
+        
+        let leafHtml = '';
+        let stemHtml = '';
+        recent5.forEach(d => {
+            leafHtml += `<tr><td class="fw-bold">${d.date}</td><td class="text-success fw-bold">${d.llen > 0 ? d.llen : '-'}</td><td class="text-success fw-bold">${d.lwid > 0 ? d.lwid : '-'}</td></tr>`;
+            stemHtml += `<tr><td class="fw-bold">${d.date}</td><td class="text-primary fw-bold">${d.ilen > 0 ? d.ilen : '-'}</td><td class="text-primary fw-bold">${d.sthick}</td></tr>`;
+        });
+        document.getElementById('infoLeafTable').innerHTML = leafHtml;
+        document.getElementById('infoStemTable').innerHTML = stemHtml;
+    }
+
+    window.onload = function() {
+        drawTables();
+        drawPrecisionVine(); 
+    };
+</script>
+</body>
+</html>

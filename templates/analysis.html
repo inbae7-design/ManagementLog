@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>소득분석표 - 영농일지</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .table-analysis th, .table-analysis td { vertical-align: middle; border: 1px solid #dee2e6; padding: 0.3rem; font-size: 0.8rem; }
+        .table-analysis th { background-color: #f1f8ff; text-align: center; font-weight: bold; }
+        .table-analysis .head-col { width: 30px; writing-mode: vertical-lr; text-orientation: upright; letter-spacing: 2px; }
+        /* 자동 입력 필드 (초록색 틴트, 수정 불가 스타일) */
+        .auto-input { background-color: #e8f5e9; border: 1px solid #c3e6cb; font-weight: bold; color: #155724; cursor: not-allowed; }
+        /* 수동 입력 필드 */
+        .manual-input { background-color: #ffffff; border: 1px solid #ced4da; }
+        /* 합계 필드 */
+        .calc-output { font-weight: bold; font-size: 0.9rem; color: #0d6efd; background-color: #e2e3e5; text-align: right; padding-right: 5px; }
+        input { text-align: right; width: 100%; height: 28px; padding: 2px 5px; }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark shadow-sm mb-3">
+  <div class="container" style="max-width: 800px;">
+    <a href="/" class="navbar-brand mb-0 h4 fw-bold text-decoration-none"><span class="fs-4 me-1">⬅️</span> 농가 소득분석표</a>
+    <button type="submit" form="analysisForm" class="btn btn-sm btn-success fw-bold">💾 분석표 저장</button>
+  </div>
+</nav>
+
+<div class="container mb-5" style="max-width: 800px;">
+    <div class="alert alert-success py-2 small" role="alert">
+        <strong>초록색 칸</strong>은 다른 장부에서 자동으로 합산된 금액입니다. 빈칸에 금액을 넣으면 <strong>하단 결과가 실시간으로 계산</strong>됩니다.
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<div class="alert alert-primary py-2 small">{{ messages[0] }}</div>{% endif %}
+    {% endwith %}
+
+    <form id="analysisForm" action="/analysis" method="post">
+    <div class="table-responsive bg-white shadow-sm mb-3">
+        <table class="table table-analysis mb-0">
+            <thead>
+                <tr>
+                    <th colspan="4" class="py-2">비목별</th>
+                    <th style="width: 15%;">수량</th>
+                    <th style="width: 25%;">금액 (원)</th>
+                    <th style="width: 20%;">비고</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th rowspan="3" class="head-col text-primary">총수입</th>
+                    <th colspan="3">주산물가액</th>
+                    <td><input type="number" name="m_main_qty" value="{{ manual.get('m_main_qty', auto.main_qty) }}" class="manual-input text-primary fw-bold" id="i_main_qty"></td>
+                    <td><input type="text" value="{{ '{:,.0f}'.format(auto.main_amt) }}" class="auto-input" readonly id="a_main_amt"></td>
+                    <td><input type="text" name="m_main_note" value="{{ manual.get('m_main_note', '') }}" class="manual-input text-start"></td>
+                </tr>
+                <tr>
+                    <th colspan="3">부산물가액</th>
+                    <td><input type="number" name="m_by_qty" value="{{ manual.get('m_by_qty', '') }}" class="manual-input"></td>
+                    <td><input type="number" name="m_by_amt" value="{{ manual.get('m_by_amt', '0') }}" class="manual-input" id="m_by_amt"></td>
+                    <td><input type="text" name="m_by_note" value="{{ manual.get('m_by_note', '') }}" class="manual-input text-start"></td>
+                </tr>
+                <tr class="table-primary">
+                    <th colspan="3">계 (a)</th>
+                    <td></td>
+                    <td class="calc-output text-primary" id="calc_a">0</td>
+                    <td></td>
+                </tr>
+
+                <tr>
+                    <th rowspan="23" class="head-col text-danger" style="background-color: #fff5f5;">생산비</th>
+                    <th rowspan="18" class="head-col text-secondary" style="background-color: #f8f9fa;">경영비</th>
+                    <th rowspan="12" class="head-col" style="background-color: #fcfcfc;">중간재비</th>
+                    <th>종자(종묘)비</th>
+                    <td></td>
+                    <td><input type="text" value="{{ '{:,.0f}'.format(auto.seed) }}" class="auto-input" readonly id="a_seed"></td>
+                    <td><input type="text" name="m_seed_note" value="{{ manual.get('m_seed_note', '') }}" class="manual-input text-start"></td>
+                </tr>
+                <tr>
+                    <th>무기질비료비</th>
+                    <td></td>
+                    <td><input type="text" value="{{ '{:,.0f}'.format(auto.inorg) }}" class="auto-input" readonly id="a_inorg"></td>
+                    <td><input type="text" name="m_inorg_note" value="{{ manual.get('m_inorg_note', '') }}" class="manual-input text-start"></td>
+                </tr>
+                <tr>
+                    <th>유기질비료비</th>
+                    <td></td>
+                    <td><input type="text" value="{{ '{:,.0f}'.format(auto.org) }}" class="auto-input" readonly id="a_org"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th>농약비</th>
+                    <td></td>
+                    <td><input type="text" value="{{ '{:,.0f}'.format(auto.pest) }}" class="auto-input" readonly id="a_pest"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th>수도광열비</th>
+                    <td></td>
+                    <td><input type="text" value="{{ '{:,.0f}'.format(auto.wl) }}" class="auto-input" readonly id="a_wl"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th>기타재료비</th>
+                    <td></td>
+                    <td><input type="text" value="{{ '{:,.0f}'.format(auto.other) }}" class="auto-input" readonly id="a_other"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th>소농구비</th>
+                    <td></td>
+                    <td><input type="number" name="m_small_tool" value="{{ manual.get('m_small_tool', '0') }}" class="manual-input" id="m_small_tool"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th>대농구상각비</th>
+                    <td></td>
+                    <td><input type="number" name="m_large_tool" value="{{ manual.get('m_large_tool', '0') }}" class="manual-input" id="m_large_tool"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th>영농시설상각비</th>
+                    <td></td>
+                    <td><input type="number" name="m_fac_dep" value="{{ manual.get('m_fac_dep', '0') }}" class="manual-input" id="m_fac_dep"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th>수리.유지비</th>
+                    <td></td>
+                    <td><input type="number" name="m_repair" value="{{ manual.get('m_repair', '0') }}" class="manual-input" id="m_repair"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th>기타요금</th>
+                    <td></td>
+                    <td><input type="number" name="m_other_fee" value="{{ manual.get('m_other_fee', '0') }}" class="manual-input" id="m_other_fee"></td>
+                    <td></td>
+                </tr>
+                <tr class="table-secondary">
+                    <th class="text-dark">계 (b)</th>
+                    <td></td>
+                    <td class="calc-output text-dark" id="calc_b">0</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="2">농기계임차료</th>
+                    <td></td>
+                    <td><input type="number" name="m_mach_rent" value="{{ manual.get('m_mach_rent', '0') }}" class="manual-input" id="m_mach_rent"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="2">토지임차료</th>
+                    <td></td>
+                    <td><input type="number" name="m_land_rent" value="{{ manual.get('m_land_rent', '0') }}" class="manual-input" id="m_land_rent"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="2">시설임차료</th>
+                    <td></td>
+                    <td><input type="number" name="m_fac_rent" value="{{ manual.get('m_fac_rent', '0') }}" class="manual-input" id="m_fac_rent"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="2">위탁영농비</th>
+                    <td></td>
+                    <td><input type="number" name="m_entrust" value="{{ manual.get('m_entrust', '0') }}" class="manual-input" id="m_entrust"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="2">고용노동비</th>
+                    <td></td>
+                    <td><input type="number" name="m_hired_labor" value="{{ manual.get('m_hired_labor', '0') }}" class="manual-input" id="m_hired_labor"></td>
+                    <td></td>
+                </tr>
+                <tr class="table-secondary">
+                    <th colspan="2" class="text-dark">계 (c)</th>
+                    <td></td>
+                    <td class="calc-output text-dark" id="calc_c">0</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="3">자가노동비</th>
+                    <td></td>
+                    <td><input type="number" name="m_own_labor" value="{{ manual.get('m_own_labor', '0') }}" class="manual-input" id="m_own_labor"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="3">유동자본용역비</th>
+                    <td></td>
+                    <td><input type="number" name="m_liq_cap" value="{{ manual.get('m_liq_cap', '0') }}" class="manual-input" id="m_liq_cap"></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="3" style="font-size: 0.75rem;">고정자본용역비</th>
+                    <td></td>
+                    <td><input type="number" name="m_fix_cap" value="{{ manual.get('m_fix_cap', '0') }}" class="manual-input" id="m_fix_cap"></td>
+                    <td style="font-size: 0.6rem; line-height:1.2; text-align:left;">시설+농기계 자본용역비</td>
+                </tr>
+                <tr>
+                    <th colspan="3">토지자본용역비</th>
+                    <td></td>
+                    <td><input type="number" name="m_land_cap" value="{{ manual.get('m_land_cap', '0') }}" class="manual-input" id="m_land_cap"></td>
+                    <td></td>
+                </tr>
+                <tr class="table-danger">
+                    <th colspan="3" class="text-danger">계 (d)</th>
+                    <td></td>
+                    <td class="calc-output text-danger" id="calc_d">0</td>
+                    <td></td>
+                </tr>
+
+                <tr>
+                    <th colspan="4" class="text-start px-3">순수익 (a-d)</th>
+                    <td></td>
+                    <td class="calc-output text-success fs-6" id="calc_net">0</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="4" class="text-start px-3">소득 (a-c)</th>
+                    <td></td>
+                    <td class="calc-output text-primary fs-6" id="calc_inc">0</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="4" class="text-start px-3">부가가치 (a-b)</th>
+                    <td></td>
+                    <td class="calc-output text-dark" id="calc_add">0</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <th colspan="4" class="text-start px-3">소득률</th>
+                    <td></td>
+                    <td class="calc-output text-dark" id="calc_rate">0%</td>
+                    <td style="font-size: 0.65rem; text-align:left;">소득÷총수입x100</td>
+                </tr>
+                <tr>
+                    <th colspan="4" class="text-start px-3">1kg당 생산비</th>
+                    <td></td>
+                    <td class="calc-output text-dark" id="calc_kg">0</td>
+                    <td style="font-size: 0.65rem; text-align:left;">생산비÷수량</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    </form>
+</div>
+
+<script>
+    // JS: 실시간 자동 계산 로직
+    // 파이썬에서 넘겨준 자동 값들 (초록칸)
+    const auto_amt = {
+        main: parseInt("{{ auto.main_amt }}"), seed: parseInt("{{ auto.seed }}"),
+        inorg: parseInt("{{ auto.inorg }}"), org: parseInt("{{ auto.org }}"),
+        pest: parseInt("{{ auto.pest }}"), wl: parseInt("{{ auto.wl }}"),
+        other: parseInt("{{ auto.other }}")
+    };
+
+    function formatNum(num) { return new Intl.NumberFormat('ko-KR').format(num); }
+    function getVal(id) { let v = parseInt(document.getElementById(id).value); return isNaN(v) ? 0 : v; }
+    function setHtml(id, val, isMoney=true) { document.getElementById(id).innerHTML = (isMoney ? formatNum(val) : val); }
+
+    function calculateAnalysis() {
+        // [총수입 계산]
+        let a = auto_amt.main + getVal('m_by_amt');
+        setHtml('calc_a', a);
+
+        // [중간재비 계산 b]
+        let b = auto_amt.seed + auto_amt.inorg + auto_amt.org + auto_amt.pest + auto_amt.wl + auto_amt.other +
+                getVal('m_small_tool') + getVal('m_large_tool') + getVal('m_fac_dep') + getVal('m_repair') + getVal('m_other_fee');
+        setHtml('calc_b', b);
+
+        // [경영비 계산 c]
+        let c = b + getVal('m_mach_rent') + getVal('m_land_rent') + getVal('m_fac_rent') + getVal('m_entrust') + getVal('m_hired_labor');
+        setHtml('calc_c', c);
+
+        // [생산비 계산 d]
+        let d = c + getVal('m_own_labor') + getVal('m_liq_cap') + getVal('m_fix_cap') + getVal('m_land_cap');
+        setHtml('calc_d', d);
+
+        // [최종 분석]
+        let net_profit = a - d;
+        let income = a - c;
+        let added_val = a - b;
+        let inc_rate = (a > 0) ? (income / a) * 100 : 0;
+        
+        let qty = getVal('i_main_qty');
+        let cost_per_kg = (qty > 0) ? (d / qty) : 0;
+
+        setHtml('calc_net', net_profit);
+        setHtml('calc_inc', income);
+        setHtml('calc_add', added_val);
+        setHtml('calc_rate', inc_rate.toFixed(1) + "%", false);
+        setHtml('calc_kg', formatNum(cost_per_kg.toFixed(0)) + "원", false);
+    }
+
+    // 모든 input 칸에 타자를 칠 때마다 다시 계산하도록 이벤트 연결
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', calculateAnalysis);
+    });
+
+    // 화면 열릴 때 최초 1회 계산 실행
+    calculateAnalysis();
+</script>
+</body>
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>병충해 방제 관리 - 스마트 영농일지</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f4f6f3; color: #333; padding-bottom: 80px;}
+        .navbar-custom { background-color: #2e4d2e; border-bottom: 2px solid #1a2f1a; }
+        .card-custom { border-radius: 12px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; border-left: 4px solid #38a169; }
+        .nav-tabs .nav-link.active { font-weight: bold; color: #2e4d2e; border-bottom: 3px solid #2e4d2e; }
+        .nav-tabs .nav-link { color: #6c757d; border: none; }
+
+        .fc { font-family: 'Noto Sans KR', sans-serif; }
+        .fc-toolbar-title { font-size: 1.15rem !important; font-weight: 900 !important; color: #2e4d2e; }
+        .fc-button-primary { background-color: #38a169 !important; border-color: #38a169 !important; text-transform: capitalize; border-radius: 8px !important; }
+        .fc-button-primary:hover { background-color: #2f855a !important; }
+        .fc-theme-standard th { padding: 10px 0; background: #f8f9fa; color: #495057; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #f0f0f0; }
+        .fc-day-today { background-color: rgba(56, 161, 105, 0.08) !important; }
+        .fc-event { border-radius: 6px; padding: 3px 5px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: none; cursor: pointer;}
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-3 shadow-sm">
+  <div class="container" style="max-width: 800px;">
+    <a href="/farming_menu" class="text-light text-decoration-none fw-bold fs-5">
+        <span class="me-1">⬅️</span> 🛡️ 병충해 방제 관리
+    </a>
+  </div>
+</nav>
+
+<div class="container" style="max-width: 800px;">
+
+    <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active w-100 px-2" id="record-tab" data-bs-toggle="tab" data-bs-target="#record" type="button" role="tab">방제 기록</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link w-100 px-2" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">통계/달력</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link w-100 px-2" id="db-tab" data-bs-toggle="tab" data-bs-target="#db" type="button" role="tab">농약 DB</button></li>
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+
+        <div class="tab-pane fade show active" id="record" role="tabpanel">
+
+            <div class="text-end mb-3 px-1">
+                <a href="/export_pesticide" class="btn btn-sm btn-outline-success fw-bold shadow-sm">📥 방제 기록 엑셀 저장</a>
+            </div>
+
+            <div class="card card-custom border-success mb-4" style="border-left: none; border-top: 4px solid #38a169;">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3 text-success">➕ 새로운 방제 기록 추가</h6>
+                    <form action="/add_record" method="POST">
+                        <div class="mb-2"><label class="fw-bold small">방제 일자</label><input type="date" name="date" class="form-control form-control-sm" required></div>
+                        <div class="mb-2"><label class="fw-bold small">구역/동</label><input type="text" name="area" class="form-control form-control-sm" placeholder="예: 1동, 전체"></div>
+                        <div class="mb-3"><label class="fw-bold small">작물명</label><input type="text" name="crop" class="form-control form-control-sm" value="오이" required></div>
+
+                        <label class="fw-bold text-success small mb-1">사용 농약/자재 선택</label>
+                        <div id="pesticide-select-container">
+                            <div class="input-group input-group-sm mb-2">
+                                <select name="pest_name" class="form-select" required>
+                                    <option value="">-- 농약 선택 --</option>
+                                    {% for db in db_list %}<option value="{{ db.2 }}">{{ db.2 }} ({{ "{:,}".format(db.6|int) }}원)</option>{% endfor %}
+                                </select>
+                                <input type="number" name="pest_count" class="form-control text-center" placeholder="수량" value="1" step="0.1" style="max-width: 80px;" required>
+                                <button type="button" class="btn btn-outline-danger px-2 fw-bold" onclick="removePesticideRow(this)" title="삭제">X</button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-1 mb-3" onclick="addPesticideRow('pesticide-select-container')">+ 혼용 약제 추가하기</button>
+                        <button type="submit" class="btn btn-success w-100 fw-bold">기록 저장</button>
+                    </form>
+                </div>
+            </div>
+
+            <h6 class="fw-bold mb-2 text-dark px-1">📋 방제 기록 내역</h6>
+            <div class="d-flex flex-column gap-2">
+                {% for ev in events %}
+                <div class="card card-custom">
+                    <div class="card-body py-2 px-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
+                            <span class="fw-bold text-dark">{{ ev.date }} <small class="text-muted">({{ ev.area }})</small></span>
+                            <div>
+                                <script id="pest-items-{{ ev.event_id }}" type="application/json">{{ ev.get('items') | tojson | safe }}</script>
+                                <button class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold me-1" onclick="openPestEdit('{{ ev.event_id }}', '{{ ev.date }}', '{{ ev.area }}', '{{ ev.crop }}')">수정</button>
+                                <a href="/delete_record_event/{{ ev.event_id }}" class="btn btn-sm btn-outline-danger py-0 px-2 fw-bold" onclick="return confirm('이 방제 기록을 삭제하시겠습니까?');">삭제</a>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1 mt-2">
+                            <span class="small fw-bold text-success">🌿 작물: {{ ev.crop }}</span>
+                            <span class="small fw-bold text-danger" style="font-size: 0.85rem;">💰 총액: {{ "{:,}".format(ev.get('total_price')|int) }}원</span>
+                        </div>
+                        <ul class="list-unstyled m-0 small mt-1">
+                            {% for item in ev.get('items') %}
+                            <li class="d-flex justify-content-between">
+                                <span>- {{ item.get('name') }} ({{ item.get('count') }}개)</span>
+                                <span class="text-muted">{{ "{:,}".format(item.get('price')|int) }}원</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted bg-white rounded shadow-sm border">방제 기록이 없습니다.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="stats" role="tabpanel">
+
+            <div class="alert alert-success fw-bold text-center mb-4 shadow-sm" style="background-color: #e6ffe6; color: #2e4d2e; border: 1px solid #c3e6c3;">
+                💰 누적 총 방제 비용: <span style="font-size: 1.15rem;">{{ "{:,}".format(total_cost|int) }}</span>원
+            </div>
+
+            <div class="card card-custom mb-4" style="border-left-color: #dd6b20;">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-2 text-dark">📊 많이 사용한 농약 (금액순)</h6>
+                    <canvas id="pestChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="card card-custom mb-4" style="border-left-color: #3182ce;">
+                <div class="card-body p-2">
+                    <h6 class="fw-bold mb-3 text-dark mt-2 ms-2">📅 방제 달력</h6>
+                    <div id="calendar" class="bg-white p-2 rounded"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="tab-pane fade" id="db" role="tabpanel">
+            <div class="text-end mb-3 px-1">
+                <a href="/export_pesticide_db" class="btn btn-sm btn-success fw-bold shadow-sm">📥 농약 DB 엑셀 저장</a>
+            </div>
+
+            <div class="card card-custom border-success mb-4" style="border-left: none; border-top: 4px solid #38a169;">
+                <div class="card-body">
+                    <h6 class="fw-bold mb-3 text-success">➕ 내 농장 전용 농약/자재 등록</h6>
+                    <form action="/add_db" method="POST">
+                        <div class="row g-2">
+                            <div class="col-6"><input type="text" name="name" class="form-control form-control-sm" placeholder="농약/자재명" required></div>
+                            <div class="col-6"><input type="text" name="mech" class="form-control form-control-sm" placeholder="작용기작 (예: 가1)"></div>
+                            <div class="col-6"><input type="text" name="pest" class="form-control form-control-sm" placeholder="적용병해충"></div>
+                            <div class="col-6"><input type="number" name="price" class="form-control form-control-sm" placeholder="단가(원)" required></div>
+                            <div class="col-12"><button type="submit" class="btn btn-sm btn-success w-100 fw-bold">DB 목록에 저장하기</button></div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <h6 class="fw-bold mb-2 text-dark px-1">📋 등록된 자재 목록</h6>
+            <div class="table-responsive bg-white rounded shadow-sm border mb-3">
+                <table class="table table-hover text-center m-0 align-middle" style="font-size: 0.85rem;">
+                    <thead class="table-light"><tr><th>자재명</th><th>기작</th><th>단가(원)</th><th>관리</th></tr></thead>
+                    <tbody>
+                        {% for db in db_list %}
+                        <tr>
+                            <td class="fw-bold">{{ db.2 }}</td><td>{{ db.3 }}</td><td>{{ "{:,}".format(db.6|int) }}</td>
+                            <td>
+                                <div class="d-flex justify-content-center gap-1">
+                                    <button class="btn btn-sm btn-outline-primary py-0 px-1 fw-bold" onclick="openDbEditModal('{{ db.0 }}', '{{ db.2 }}', '{{ db.3 }}', '{{ db.4 }}', '{{ db.5 }}', '{{ db.6 }}')">수정</button>
+                                    <a href="/delete/db/{{ db.0 }}" class="btn btn-sm btn-outline-danger py-0 px-1 fw-bold" onclick="return confirm('삭제하시겠습니까?');">X</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="py-4 text-muted">등록된 농약 DB가 없습니다.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="editRecordModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="/edit_record" method="POST">
+          <input type="hidden" name="event_id" id="edit_event_id">
+          <div class="modal-header bg-primary text-white py-2">
+            <h6 class="modal-title fw-bold">방제 기록 수정</h6>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body small">
+            <div class="mb-2"><label class="fw-bold">방제 일자</label><input type="date" name="date" id="edit_date" class="form-control form-control-sm" required></div>
+            <div class="mb-2"><label class="fw-bold">구역/동</label><input type="text" name="area" id="edit_area" class="form-control form-control-sm"></div>
+            <div class="mb-3"><label class="fw-bold">작물명</label><input type="text" name="crop" id="edit_crop" class="form-control form-control-sm" required></div>
+            <label class="fw-bold text-primary mb-1">사용 농약/자재 수정</label>
+            <div id="edit-pesticide-select-container"></div>
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-1" onclick="addPesticideRow('edit-pesticide-select-container')">+ 약제 줄 추가하기</button>
+          </div>
+          <div class="modal-footer py-1"><button type="submit" class="btn btn-primary w-100 fw-bold">수정 완료</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="pest-row-template" style="display: none;">
+    <div class="input-group input-group-sm mb-2">
+        <select name="pest_name" class="form-select" required>
+            <option value="">-- 농약 선택 --</option>
+            {% for db in db_list %}<option value="{{ db.2 }}">{{ db.2 }}</option>{% endfor %}
+        </select>
+        <input type="number" name="pest_count" class="form-control text-center" placeholder="수량" value="1" step="0.1" style="max-width: 80px;" required>
+        <button type="button" class="btn btn-outline-danger px-2 fw-bold" onclick="removePesticideRow(this)" title="삭제">X</button>
+    </div>
+</div>
+
+<div class="modal fade" id="editDbModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form action="/edit_db" method="POST">
+          <input type="hidden" name="id" id="edit_db_id">
+
+          <div class="modal-header bg-success text-white py-2">
+            <h6 class="modal-title fw-bold">농약/자재 DB 수정</h6>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body small bg-light">
+            <div class="mb-2"><label class="fw-bold">자재명</label><input type="text" name="name" id="edit_db_name" class="form-control form-control-sm" required></div>
+            <div class="mb-2"><label class="fw-bold">작용기작</label><input type="text" name="mech" id="edit_db_mech" class="form-control form-control-sm"></div>
+            <div class="mb-2"><label class="fw-bold">적용병해충</label><input type="text" name="pest" id="edit_db_pest" class="form-control form-control-sm"></div>
+            <div class="mb-2"><label class="fw-bold">단위/규격</label><input type="text" name="unit" id="edit_db_unit" class="form-control form-control-sm" placeholder="예: 500ml, 1kg"></div>
+            <div class="mb-3"><label class="fw-bold">단가(원)</label><input type="number" name="price" id="edit_db_price" class="form-control form-control-sm" required></div>
+          </div>
+          <div class="modal-footer py-1"><button type="submit" class="btn btn-success w-100 fw-bold">수정 완료</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ✨ 팝업창에 기존 데이터를 쏙쏙 채워주는 작동 엔진
+    let editDbModal;
+    document.addEventListener('DOMContentLoaded', function() {
+        editDbModal = new bootstrap.Modal(document.getElementById('editDbModal'));
+    });
+
+    function openDbEditModal(id, name, mech, pest, unit, price) {
+        document.getElementById('edit_db_id').value = id;
+        document.getElementById('edit_db_name').value = name;
+        document.getElementById('edit_db_mech').value = (mech && mech !== 'None') ? mech : '';
+        document.getElementById('edit_db_pest').value = (pest && pest !== 'None') ? pest : '';
+
+        // 데이터 순서가 살짝 다를 경우를 대비한 튼튼한 안전장치
+        if (price === undefined || price === '') {
+            document.getElementById('edit_db_price').value = unit;
+            document.getElementById('edit_db_unit').value = '';
+        } else {
+            document.getElementById('edit_db_unit').value = (unit && unit !== 'None') ? unit : '';
+            document.getElementById('edit_db_price').value = price;
+        }
+
+        editDbModal.show();
+    }
+    document.querySelector('input[type="date"]').value = new Date().toISOString().substring(0, 10);
+
+    function addPesticideRow(containerId) {
+        const container = document.getElementById(containerId);
+        const template = document.getElementById('pest-row-template').firstElementChild;
+        const row = template.cloneNode(true);
+
+        row.querySelector('select').value = '';
+        row.querySelector('input[type="number"]').value = '1';
+
+        container.appendChild(row);
+    }
+
+    // 2. 약제 삭제 함수 (1개 남았을 때 삭제 방지)
+    function removePesticideRow(buttonElement) {
+        const row = buttonElement.closest('.input-group');
+        const container = row.parentElement;
+
+        if (container.querySelectorAll('.input-group').length <= 1) {
+            alert('최소 1개의 약제는 입력되어야 합니다.');
+            return;
+        }
+        row.remove();
+    }
+
+    let editModal;
+    document.addEventListener('DOMContentLoaded', function() { editModal = new bootstrap.Modal(document.getElementById('editRecordModal')); });
+
+    // 3. 수정 모달창 열기 함수 (대괄호 없는 name 속성으로 검색)
+    function openPestEdit(eventId, date, area, crop) {
+        document.getElementById('edit_event_id').value = eventId;
+        document.getElementById('edit_date').value = date;
+        document.getElementById('edit_area').value = area;
+        document.getElementById('edit_crop').value = crop;
+
+        const container = document.getElementById('edit-pesticide-select-container');
+        container.innerHTML = '';
+
+        try {
+            const items = JSON.parse(document.getElementById('pest-items-' + eventId).textContent);
+
+            items.forEach(item => {
+                const template = document.getElementById('pest-row-template').firstElementChild;
+                const row = template.cloneNode(true);
+
+                // 대괄호가 빠진 속성명(pest_name, pest_count)으로 값을 찾아 넣어줍니다.
+                row.querySelector('select[name="pest_name"]').value = item.name;
+                row.querySelector('input[name="pest_count"]').value = item.count;
+
+                container.appendChild(row);
+            });
+
+            editModal.show();
+        } catch (error) {
+            console.error("데이터 로딩 오류:", error);
+            alert("약제 정보를 불러오는 중 문제가 발생했습니다.");
+        }
+    }
+
+    let isCalendarRendered = false;
+    document.getElementById('stats-tab').addEventListener('shown.bs.tab', function () {
+        if (!isCalendarRendered) {
+            const eventsArr = new Array();
+            {% for ev in events %}
+                eventsArr.push({
+                    title: "({{ ev.area }}) {{ '혼용' if ev.get('item_count')|int > 1 else '단독' }}",
+                    start: "{{ ev.date }}",
+                    backgroundColor: "{{ '#dd6b20' if ev.get('item_count')|int > 1 else '#38a169' }}"
+                });
+            {% endfor %}
+
+            const calendarEl = document.getElementById('calendar');
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                events: eventsArr,
+                height: 'auto',
+                contentHeight: 400,
+                headerToolbar: { left: 'prev,next', center: 'title', right: 'today' },
+                locale: 'ko',
+                dayMaxEvents: true
+            });
+            calendar.render();
+
+            const ctx = document.getElementById('pestChart').getContext('2d');
+            const labels = {{ stats_labels|safe }};
+            const data = {{ stats_prices|safe }};
+            const bgColors = new Array('#38a169', '#3182ce', '#dd6b20', '#e53e3e', '#805ad5', '#d69e2e', '#00b5d8', '#ed64a6');
+
+            if (labels.length > 0) {
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: new Array({
+                            label: '사용 금액',
+                            data: data,
+                            backgroundColor: bgColors,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: 'rgba(0,0,0,0.1)'
+                        })
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                padding: 10,
+                                titleFont: { size: 13 },
+                                bodyFont: { size: 14, weight: 'bold' },
+                                callbacks: { label: function(context) { return ' ' + context.raw.toLocaleString() + '원'; } }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#e2e8f0', borderDash: new Array(5, 5) },
+                                ticks: { callback: function(value) { return value.toLocaleString() + '원'; } }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            } else {
+                document.getElementById('pestChart').outerHTML = '<div class="text-center text-muted small py-3">차트 데이터가 없습니다.</div>';
+            }
+            isCalendarRendered = true;
+        }
+    });
+</script>
+</body>
+</html>

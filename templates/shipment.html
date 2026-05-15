@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>출하내역 관리 - 스마트 영농일지</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f1f5f9; color: #334155; padding-bottom: 80px;}
+        .navbar-custom { background-color: #166534; border-bottom: 2px solid #14532d; }
+        .card-custom { border-radius: 16px; border: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 12px; background: #fff;}
+        .nav-tabs .nav-link.active { font-weight: 900; color: #166534; border-bottom: 3px solid #22c55e; background: transparent; border-top:none; border-left:none; border-right:none;}
+        .nav-tabs .nav-link { color: #94a3b8; border: none; font-weight: bold; font-size: 1.05rem; padding: 12px 0; }
+        .stat-value { font-size: 1.25rem; font-weight: 900; letter-spacing: -0.5px; }
+        .stat-label { font-size: 0.75rem; font-weight: bold; color: #64748b; }
+
+        .table-mobile { table-layout: fixed; width: 100%; word-break: keep-all; }
+        .table-mobile th { background-color: #f8fafc; color: #475569; font-size: 0.75rem; padding: 10px 2px; border-bottom: 2px solid #cbd5e1; cursor: pointer; user-select: none; }
+        .table-mobile th:active { background-color: #e2e8f0; }
+        .table-mobile td { vertical-align: middle; padding: 10px 2px; border-bottom: 1px solid #e2e8f0; line-height: 1.3; }
+
+        .chart-container { position: relative; height: 180px; width: 100%; }
+        .chart-container-large { position: relative; height: 220px; width: 100%; }
+        .form-control-sm { border-radius: 8px; font-size: 0.85rem; padding: 6px 10px; }
+
+        @media print {
+            .nav-tabs, .navbar-custom, .btn { display: none !important; }
+            body { background-color: #fff; padding: 0; }
+            .card-custom { box-shadow: none; border: 1px solid #ccc; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-3 shadow-sm">
+  <div class="container" style="max-width: 900px;">
+    <a href="/farming_menu" class="text-light text-decoration-none fw-bold fs-5">
+        <span class="me-2">⬅️</span> 📦 출하 및 매출 관리
+    </a>
+  </div>
+</nav>
+
+<div class="container" style="max-width: 900px;">
+
+    <ul class="nav nav-tabs mb-3 flex-nowrap" id="shipmentTab" role="tablist">
+        <li class="nav-item w-50 text-center" role="presentation">
+            <button class="nav-link active w-100" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button" role="tab">📝 등록 및 내역</button>
+        </li>
+        <li class="nav-item w-50 text-center" role="presentation">
+            <button class="nav-link w-100" id="status-tab" data-bs-toggle="tab" data-bs-target="#status" type="button" role="tab">📊 출하 현황(작기)</button>
+        </li>
+    </ul>
+
+    <datalist id="dest_list"></datalist>
+
+    <div class="tab-content" id="shipmentTabContent">
+
+        <div class="tab-pane fade show active" id="register" role="tabpanel">
+
+            <div class="card-custom p-3 mb-3 border-success" style="border-top: 5px solid #10b981;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0 text-success" style="font-size: 1rem;">➕ 신규 출하 등록</h6>
+                    <div class="d-flex gap-1">
+                        <form action="/upload_shipment_csv" method="POST" enctype="multipart/form-data" id="csv_upload_form" class="d-none">
+                            <input type="file" name="csv_file" id="csv_file_input" accept=".csv" onchange="document.getElementById('csv_upload_form').submit();">
+                        </form>
+                        <button type="button" class="btn btn-outline-primary btn-sm fw-bold px-2 py-1" style="font-size: 0.75rem;" onclick="document.getElementById('csv_file_input').click();">📂 불러오기</button>
+                        <button type="button" class="btn btn-outline-success btn-sm fw-bold px-2 py-1" style="font-size: 0.75rem;" onclick="exportExcel()">📊 엑셀 저장</button>
+                    </div>
+                </div>
+
+                <form action="/add_shipment" method="POST">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><label class="small fw-bold text-muted mb-1" style="font-size: 0.8rem;">출하 일자</label><input type="date" name="date" id="reg_date" class="form-control form-control-sm fw-bold" required></div>
+                        <div class="col-6"><label class="small fw-bold text-muted mb-1" style="font-size: 0.8rem;">출하처</label><input type="text" name="destination" class="form-control form-control-sm fw-bold text-primary" placeholder="터치하여 선택" list="dest_list" autocomplete="off" required></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><label class="small fw-bold text-muted mb-1" style="font-size: 0.8rem;">수량(박스)</label><input type="number" step="0.1" name="quantity" id="reg_qty" class="form-control form-control-sm text-end fw-bold" placeholder="0" required></div>
+                        <div class="col-6"><label class="small fw-bold text-muted mb-1" style="font-size: 0.8rem;">단가(원)</label><input type="number" name="bid_price" id="reg_bid" class="form-control form-control-sm text-end fw-bold" placeholder="0" required></div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><label class="small fw-bold text-muted mb-1" style="font-size: 0.8rem;">총 매출액</label><input type="number" name="sales_amount" id="reg_sales" class="form-control form-control-sm text-end text-primary fw-bolder bg-light" placeholder="자동계산" required readonly style="height: 32px;"></div>
+                        <div class="col-6">
+                            <label class="small fw-bold text-muted mb-1" style="font-size: 0.8rem;">수수료율(%)</label>
+                            <div class="d-flex gap-1 align-items-center">
+                                <select id="reg_fee_rate" class="form-select form-select-sm text-primary fw-bold shadow-sm" style="font-size: 0.8rem; padding: 0.25rem 1.5rem 0.25rem 0.5rem; width: 100%; height: 32px;">
+                                    <option value="0.07" selected>7%</option>
+                                    <option value="0.065">6.5%</option>
+                                    <option value="0.06">6%</option>
+                                    <option value="0.05">5%</option>
+                                    <option value="0.0">0%</option>
+                                    <option value="manual">직접입력</option>
+                                </select>
+                                <div id="reg_custom_rate_wrapper" class="input-group input-group-sm d-none shadow-sm" style="width: 55%;">
+                                    <input type="number" step="0.01" id="reg_custom_rate" class="form-control text-end text-primary fw-bold px-1" style="font-size: 0.8rem; height: 32px;" placeholder="0.0">
+                                    <span class="input-group-text px-1 fw-bold text-primary bg-white" style="font-size: 0.8rem; height: 32px;">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6"><label class="small fw-bold text-muted mb-1" style="font-size: 0.8rem;">순수익(원)</label><div class="form-control form-control-sm text-end text-danger fw-bolder bg-light border-danger border-opacity-50" id="reg_net" style="display: flex; align-items: center; justify-content: flex-end; height: 32px;">0</div></div>
+                        <div class="col-6"><label class="small fw-bold text-muted mb-1" style="font-size: 0.8rem;">수수료 금액</label><input type="number" name="shipping_cost" id="reg_cost" class="form-control form-control-sm text-end text-danger fw-bold border-danger border-opacity-50" placeholder="수수료 계산" style="height: 32px;"></div>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 fw-bold py-2 rounded-3 shadow-sm mt-1">내역 저장하기</button>
+                </form>
+            </div>
+
+            <div class="bg-white rounded-3 border shadow-sm px-1">
+                <table class="table table-mobile table-hover text-center align-middle m-0">
+                    <thead>
+                        <tr>
+                            <th class="text-start ps-2" style="width: 28%;" onclick="sortRows('date')">일자/출하처 ↕</th>
+                            <th style="width: 14%;" onclick="sortRows('qty')">수량 ↕</th>
+                            <th class="text-end" style="width: 20%;" onclick="sortRows('price')">단가 ↕</th>
+                            <th class="text-end pe-2" style="width: 26%;" onclick="sortRows('net')">정산결과 ↕</th>
+                            <th style="width: 12%;">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shipment_tbody">
+                        {% set current_month = namespace(value='') %}
+                        {% for s in shipments %}
+
+                            {% set s_month = s.2.split('-').0 ~ '-' ~ s.2.split('-').1 %}
+
+                            {% if s_month != current_month.value %}
+                                {% set current_month.value = s_month %}
+                                {% for m in monthly_stats %}
+                                    {% if m.0 == s_month %}
+                                        <tr class="summary-row" style="background-color: #f8fafc; border-top: 2px solid #94a3b8;">
+                                            <td colspan="5" class="text-start py-2 px-2">
+                                                <div class="fw-bold text-dark mb-1" style="font-size: 0.9rem;">📅 {{ m.0 }}월 총 결산</div>
+                                                <div class="d-flex flex-wrap gap-1" style="font-size: 0.75rem;">
+                                                    <span class="badge bg-success">📦 {{ "{:,}".format(m.1|int) }}박스</span>
+                                                    <span class="badge bg-primary">매출 {{ "{:,}".format(m.2|int) }}원</span>
+                                                    <span class="badge text-bg-warning text-white">수수료 {{ "{:,}".format(m.3|int) }}원</span>
+                                                    <span class="badge text-bg-danger fw-bolder shadow-sm" style="font-size: 0.8rem;">💵 순수익 {{ "{:,}".format((m.2 - m.3)|int) }}원</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+
+                            <tr class="shipment-row" data-date="{{ s.2 }}" data-qty="{{ s.4 }}" data-price="{{ s.5 }}" data-net="{{ (s.6 - s.7)|int }}">
+                                <td class="text-start ps-2">
+                                    <div class="fw-bold text-dark" style="font-size: 0.8rem; letter-spacing: -0.5px;">{{ s.2.split('-').1 }}-{{ s.2.split('-').2 }}</div>
+                                    <div class="text-muted fw-bold mt-1" style="font-size: 0.7rem; letter-spacing: -0.5px;">🏢 {{ s.3 }}</div>
+                                </td>
+                                <td><span class="badge bg-success px-1" style="font-size: 0.8rem;">{{ s.4 }}</span></td>
+                                <td class="text-end fw-bold text-dark" style="font-size: 0.8rem; letter-spacing: -0.5px;">{{ "{:,}".format(s.5|int) }}</td>
+                                <td class="text-end pe-2">
+                                    <div class="text-primary fw-bold" style="font-size: 0.8rem; letter-spacing: -0.5px;">{{ "{:,}".format(s.6|int) }}</div>
+                                    <div class="text-danger mt-1" style="font-size: 0.7rem; letter-spacing: -0.5px;">- {{ "{:,}".format(s.7|int) }}</div>
+                                    <div class="text-dark fw-bolder mt-1 pt-1" style="font-size: 0.85rem; letter-spacing: -0.5px; border-top: 1px dashed #cbd5e1;">
+                                        = {{ "{:,}".format((s.6 - s.7)|int) }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column align-items-center gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1" style="font-size:0.7rem; width: 38px;" onclick="openEditModal('{{ s.0 }}', '{{ s.2 }}', '{{ s.3 }}', '{{ s.4 }}', '{{ s.5 }}', '{{ s.6 }}', '{{ s.7 }}')">수정</button>
+                                        <form action="/delete_shipment" method="POST" class="m-0" onsubmit="return confirm('이 출하 내역을 정말 삭제하시겠습니까?');">
+                                            <input type="hidden" name="id" value="{{ s.0 }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1" style="font-size:0.7rem; width: 38px;">삭제</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="py-5 text-muted fw-bold">등록된 출하 내역이 없습니다.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="status" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="badge bg-success shadow-sm p-2" style="font-size: 0.8rem;">🌱 <span id="display_season_start"></span> 부터 (이번 작기)</div>
+                <button type="button" class="btn btn-outline-primary btn-sm fw-bold px-3 shadow-sm" onclick="window.print()">🖨️ 인쇄/PDF</button>
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-12">
+                    <div class="card-custom p-3 text-center border-t-4" style="border-top: 5px solid #3b82f6;">
+                        <div class="stat-label text-primary" style="font-size: 0.85rem;">이번 작기 총매출</div>
+                        <div class="stat-value text-primary mt-1" style="font-size: 1.6rem;"><span id="stat-sales">0</span><span class="fs-5 text-muted ms-1">원</span></div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card-custom p-2 text-center border-t-4" style="border-top: 4px solid #10b981; height: 100%;">
+                        <div class="stat-label">이번 작기 출하량</div>
+                        <div class="stat-value text-success mt-1" style="font-size: 1.1rem;"><span id="stat-qty">0</span><span class="fs-6 text-muted ms-1">박스</span></div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="card-custom p-2 text-center border-t-4" style="border-top: 4px solid #f59e0b; height: 100%;">
+                        <div class="stat-label">작기 평균 단가</div>
+                        <div class="stat-value text-warning mt-1" style="font-size: 1.1rem;"><span id="stat-price">0</span><span class="fs-6 text-muted ms-1">원</span></div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="card-custom p-3 border-danger" style="border-left: 5px solid #ef4444;">
+                        <h6 class="fw-bold mb-2 text-dark" style="font-size: 0.9rem;">📈 일일 최고 단가 추이 (이번 작기)</h6>
+                        <div class="chart-container-large">
+                            <canvas id="priceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card-custom p-3 border-primary" style="border-left: 5px solid #3b82f6;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="fw-bold m-0 text-dark" style="font-size: 0.9rem;">🗓️ 요일별 평균 단가 (최고가)</h6>
+                            <select id="month_selector" class="form-select form-select-sm text-primary fw-bold shadow-sm" style="width: auto; font-size: 0.75rem; padding: 2px 25px 2px 8px;"></select>
+                        </div>
+                        <div class="chart-container"><canvas id="dowChart"></canvas></div>
+                    </div>
+                </div>
+                
+                <div class="col-12 col-md-6">
+                    <div class="card-custom p-3 border-info" style="border-left: 5px solid #0ea5e9;">
+                        <h6 class="fw-bold mb-2 text-dark" style="font-size: 0.9rem;">📦 작기별 월 출하수량 비교 (이전 vs 이번)</h6>
+                        <div class="chart-container"><canvas id="qtySeasonChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card-custom p-3 border-success" style="border-left: 5px solid #10b981;">
+                        <h6 class="fw-bold mb-2 text-dark" style="font-size: 0.9rem;">🔄 작기별 월 매출액 비교 (이전 vs 이번)</h6>
+                        <div class="chart-container"><canvas id="seasonChart"></canvas></div>
+                    </div>
+                </div>
+                
+                <div class="col-12 col-md-6">
+                    <div class="card-custom p-3">
+                        <h6 class="fw-bold mb-2 text-dark" style="font-size: 0.9rem;">🏢 이번 작기 출하처별 비중</h6>
+                        <div class="chart-container"><canvas id="destChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editShipmentModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <form action="/edit_shipment" method="POST">
+          <input type="hidden" name="id" id="edit_id">
+          <div class="modal-header bg-primary text-white py-2">
+            <h6 class="modal-title fw-bold" style="font-size: 1rem;">출하내역 수정</h6>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body bg-light">
+            <div class="row g-2 mb-2">
+                <div class="col-6"><label class="small fw-bold text-muted mb-1">출하 일자</label><input type="date" name="date" id="edit_date" class="form-control form-control-sm fw-bold" required></div>
+                <div class="col-6"><label class="small fw-bold text-muted mb-1">출하처</label><input type="text" name="destination" id="edit_dest" class="form-control form-control-sm text-primary fw-bold" list="dest_list" autocomplete="off" required></div>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-6"><label class="small fw-bold text-muted mb-1">수량(박스)</label><input type="number" step="0.1" name="quantity" id="edit_qty" class="form-control form-control-sm text-end fw-bold" required></div>
+                <div class="col-6"><label class="small fw-bold text-muted mb-1">단가(원)</label><input type="number" name="bid_price" id="edit_bid" class="form-control form-control-sm text-end fw-bold" required></div>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-6"><label class="small fw-bold text-muted mb-1">매출액(원)</label><input type="number" name="sales_amount" id="edit_sales" class="form-control form-control-sm text-end text-primary fw-bold bg-white" required readonly style="height: 32px;"></div>
+                <div class="col-6">
+                    <label class="small fw-bold text-muted mb-1">수수료율(%)</label>
+                    <div class="d-flex gap-1 align-items-center">
+                        <select id="edit_fee_rate" class="form-select form-select-sm text-primary fw-bold shadow-sm" style="font-size: 0.8rem; padding: 0.25rem 1.5rem 0.25rem 0.5rem; width: 100%; height: 32px;">
+                            <option value="0.07">7%</option>
+                            <option value="0.065">6.5%</option>
+                            <option value="0.06">6%</option>
+                            <option value="0.05">5%</option>
+                            <option value="0.0">0%</option>
+                            <option value="manual">직접입력</option>
+                        </select>
+                        <div id="edit_custom_rate_wrapper" class="input-group input-group-sm d-none shadow-sm" style="width: 55%;">
+                            <input type="number" step="0.01" id="edit_custom_rate" class="form-control text-end text-primary fw-bold px-1" style="font-size: 0.8rem; height: 32px;">
+                            <span class="input-group-text px-1 fw-bold text-primary bg-white" style="font-size: 0.8rem; height: 32px;">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <label class="small fw-bold text-muted mb-1">순수익(원)</label>
+                    <div class="form-control form-control-sm text-end text-danger fw-bolder bg-white border-danger border-opacity-50" id="edit_net" style="display: flex; align-items: center; justify-content: flex-end; height: 32px;">0</div>
+                </div>
+                <div class="col-6">
+                    <label class="small fw-bold text-muted mb-1">수수료 금액</label>
+                    <input type="number" name="shipping_cost" id="edit_cost" class="form-control form-control-sm text-end text-danger fw-bold border-danger border-opacity-50" style="height: 32px;">
+                </div>
+            </div>
+          </div>
+          <div class="modal-footer py-2"><button type="submit" class="btn btn-primary w-100 fw-bold rounded-3">수정 완료</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script id="shipment-data" type="application/json">
+    {{ shipments_json | safe }}
+</script>
+
+<script>
+    window.FARM_SEASON_START = "{{ season_start }}";
+
+    function sortRows(key) {
+        const tbody = document.getElementById('shipment_tbody');
+        const rowsCollection = document.getElementsByClassName('shipment-row');
+        const summariesCollection = document.getElementsByClassName('summary-row');
+
+        const rows = Array.from(rowsCollection);
+        const summaries = Array.from(summariesCollection);
+
+        let asc = Reflect.get(window, 'sortAsc_' + key) || false;
+        asc = !asc;
+        Reflect.set(window, 'sortAsc_' + key, asc);
+
+        summaries.forEach(function(r) { r.style.display = 'none'; });
+
+        rows.sort(function(a, b) {
+            let valA = Reflect.get(a.dataset, key);
+            let valB = Reflect.get(b.dataset, key);
+            if (key === 'date') { return asc ? valA.localeCompare(valB) : valB.localeCompare(valA); }
+            else { return asc ? parseFloat(valA) - parseFloat(valB) : parseFloat(valB) - parseFloat(valA); }
+        });
+
+        rows.forEach(function(r) { tbody.appendChild(r); });
+    }
+
+    function exportExcel() {
+        let csv = "data:text/csv;charset=utf-8,\uFEFF";
+        csv += "일자,출하처,수량(박스),단가(원),매출액(원),수수료(원),순수익(원)\n";
+
+        let exData = new Array();
+        try {
+            const dataText = document.getElementById('shipment-data').textContent;
+            if(dataText && dataText.trim() !== '') { exData = JSON.parse(dataText); }
+        } catch(e) {}
+
+        exData.forEach(function(d) {
+            const dt = d.date || ''; const dest = d.destination || '';
+            const q = d.quantity || 0; const p = d.bid_price || 0;
+            const s = d.sales_amount || 0; const c = d.shipping_cost || 0;
+            const n = s - c;
+            csv += dt + "," + dest + "," + q + "," + p + "," + s + "," + c + "," + n + "\n";
+        });
+
+        const encodedUri = encodeURI(csv);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "스마트영농일지_출하내역.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.location.hash === '#register') {
+            const triggerEl = document.getElementById('register-tab');
+            const tabInstance = new bootstrap.Tab(triggerEl);
+            tabInstance.show();
+            history.replaceState(null, null, ' ');
+        }
+    });
+
+    const regDateInput = document.getElementById('reg_date');
+    if (regDateInput) { regDateInput.value = new Date().toISOString().substring(0, 10); }
+
+    const regQty = document.getElementById('reg_qty'), regBid = document.getElementById('reg_bid'), regSales = document.getElementById('reg_sales');
+    const regCost = document.getElementById('reg_cost'), regFeeRateEl = document.getElementById('reg_fee_rate');
+    const regCustomRateWrapper = document.getElementById('reg_custom_rate_wrapper'), regCustomRate = document.getElementById('reg_custom_rate');
+    const regNet = document.getElementById('reg_net');
+
+    const savedType = localStorage.getItem('FUTURICS_FEE_TYPE');
+    const savedVal = localStorage.getItem('FUTURICS_CUSTOM_RATE');
+    if(savedType && regFeeRateEl) { regFeeRateEl.value = savedType; }
+    if(savedVal && regCustomRate) { regCustomRate.value = savedVal; }
+
+    function toggleRegFee() {
+        if(regFeeRateEl.value === 'manual') {
+            regFeeRateEl.style.width = '45%';
+            regCustomRateWrapper.classList.remove('d-none'); regCustomRateWrapper.classList.add('d-flex');
+        } else {
+            regFeeRateEl.style.width = '100%';
+            regCustomRateWrapper.classList.add('d-none'); regCustomRateWrapper.classList.remove('d-flex');
+        }
+    }
+    if(regFeeRateEl) { toggleRegFee(); }
+
+    function calcReg() {
+        const q = parseFloat(regQty.value)||0, p = parseInt(regBid.value)||0, t = Math.round(q*p);
+        if(regSales) regSales.value = t;
+
+        let rate = 0.07;
+        if(regFeeRateEl && regFeeRateEl.value === 'manual') { rate = (parseFloat(regCustomRate.value) || 0) / 100; }
+        else if (regFeeRateEl) { rate = parseFloat(regFeeRateEl.value); }
+
+        const cost = Math.round(t*rate);
+        if(regCost) regCost.value = cost;
+        if(regNet) regNet.innerText = new Intl.NumberFormat('ko-KR').format(t - cost);
+
+        if(regFeeRateEl) localStorage.setItem('FUTURICS_FEE_TYPE', regFeeRateEl.value);
+        if(regCustomRate) localStorage.setItem('FUTURICS_CUSTOM_RATE', regCustomRate.value);
+    }
+
+    if(regQty) regQty.addEventListener('input', calcReg);
+    if(regBid) regBid.addEventListener('input', calcReg);
+    if(regFeeRateEl) { regFeeRateEl.addEventListener('change', function() { toggleRegFee(); calcReg(); }); }
+    if(regCustomRate) regCustomRate.addEventListener('input', calcReg);
+    if(regCost) { regCost.addEventListener('input', function() {
+        if(regFeeRateEl) { regFeeRateEl.value = 'manual'; toggleRegFee(); }
+        const t = parseInt(regSales.value) || 0; const c = parseInt(regCost.value) || 0;
+        if(regNet) regNet.innerText = new Intl.NumberFormat('ko-KR').format(t - c);
+    }); }
+
+    const editQty = document.getElementById('edit_qty'), editBid = document.getElementById('edit_bid'), editSales = document.getElementById('edit_sales');
+    const editCost = document.getElementById('edit_cost'), editFeeRateEl = document.getElementById('edit_fee_rate');
+    const editCustomRateWrapper = document.getElementById('edit_custom_rate_wrapper'), editCustomRate = document.getElementById('edit_custom_rate');
+    const editNet = document.getElementById('edit_net');
+
+    function toggleEditFee() {
+        if(editFeeRateEl.value === 'manual') {
+            editFeeRateEl.style.width = '45%';
+            editCustomRateWrapper.classList.remove('d-none'); editCustomRateWrapper.classList.add('d-flex');
+        } else {
+            editFeeRateEl.style.width = '100%';
+            editCustomRateWrapper.classList.add('d-none'); editCustomRateWrapper.classList.remove('d-flex');
+        }
+    }
+
+    function calcEdit() {
+        const q = parseFloat(editQty.value)||0, p = parseInt(editBid.value)||0, t = Math.round(q*p);
+        if(editSales) editSales.value = t;
+
+        let rate = 0.07;
+        if(editFeeRateEl && editFeeRateEl.value === 'manual') { rate = (parseFloat(editCustomRate.value) || 0) / 100; }
+        else if (editFeeRateEl) { rate = parseFloat(editFeeRateEl.value); }
+
+        const cost = Math.round(t*rate);
+        if(editCost) editCost.value = cost;
+        if(editNet) editNet.innerText = new Intl.NumberFormat('ko-KR').format(t - cost);
+    }
+    if(editQty) editQty.addEventListener('input', calcEdit);
+    if(editBid) editBid.addEventListener('input', calcEdit);
+    if(editFeeRateEl) { editFeeRateEl.addEventListener('change', function(){ toggleEditFee(); calcEdit(); }); }
+    if(editCustomRate) editCustomRate.addEventListener('input', calcEdit);
+    if(editCost) { editCost.addEventListener('input', function() {
+        if(editFeeRateEl) { editFeeRateEl.value = 'manual'; toggleEditFee(); }
+        const t = parseInt(editSales.value) || 0; const c = parseInt(editCost.value) || 0;
+        if(editNet) editNet.innerText = new Intl.NumberFormat('ko-KR').format(t - c);
+    }); }
+
+    let editModal;
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalEl = document.getElementById('editShipmentModal');
+        if(modalEl) editModal = new bootstrap.Modal(modalEl);
+    });
+
+    function openEditModal(id, date, dest, qty, bid, sales, cost) {
+        document.getElementById('edit_id').value = id;
+        document.getElementById('edit_date').value = date;
+        document.getElementById('edit_dest').value = dest;
+        editQty.value = qty;
+        editBid.value = bid;
+        editSales.value = sales;
+        editCost.value = cost;
+
+        const sVal = parseFloat(sales) || 0; const cVal = parseFloat(cost) || 0;
+        let ratePercent = 0;
+        if (sVal > 0) { ratePercent = (cVal / sVal) * 100; }
+        const niceRate = Math.round(ratePercent * 100) / 100;
+
+        if(editFeeRateEl) { editFeeRateEl.value = "manual"; toggleEditFee(); }
+        if(editCustomRate) { editCustomRate.value = niceRate; }
+        if(editNet) { editNet.innerText = new Intl.NumberFormat('ko-KR').format(sVal - cVal); }
+
+        editModal.show();
+    }
+
+    // ==========================================
+    // 📊 대시보드 통계 및 데이터 처리 엔진
+    // ==========================================
+    const fmtNum = (num) => new Intl.NumberFormat('ko-KR').format(num);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        Chart.defaults.font.family = "'Noto Sans KR', sans-serif";
+        Reflect.set(Chart.defaults.plugins.legend.labels, 'font', {size: 11, weight: 'bold'});
+
+        let rawData = new Array();
+        try {
+            const dataText = document.getElementById('shipment-data').textContent;
+            if(dataText && dataText.trim() !== '') { rawData = JSON.parse(dataText); }
+        } catch(e) {}
+
+        const activeSeasonStart = window.FARM_SEASON_START || "2025-09-01";
+
+        const sYear = parseInt(activeSeasonStart.substring(0, 4));
+        const sMonthDay = activeSeasonStart.substring(4);
+        const prevSeasonStart = (sYear - 1).toString() + sMonthDay;
+
+        const displayEl = document.getElementById('display_season_start');
+        if(displayEl) displayEl.innerText = activeSeasonStart;
+
+        let mSales = 0, mQty = 0, mBidSum = 0, mBidCount = 0;
+        const destMap = {}, monthMap = {}, monthQtyMap = {}, datePriceMap = {};
+        
+        // 매출액 맵
+        const currSeasonMap = {}; const prevSeasonMap = {};
+        // 수량 맵 (새로 추가됨)
+        const currSeasonQtyMap = {}; const prevSeasonQtyMap = {};
+
+        const monthDowMap = {}; 
+
+        if (rawData && rawData.length > 0) {
+            rawData.forEach(d => {
+                const dDate = d.date || '';
+                const dDest = d.destination || '미상';
+                const dQty = parseFloat(d.quantity) || 0; // 수량
+
+                if (dDate >= activeSeasonStart) {
+                    mSales += d.sales_amount; mQty += dQty;
+                    if (d.bid_price > 0) { mBidSum += d.bid_price; mBidCount++; }
+
+                    if (!Reflect.has(destMap, dDest)) Reflect.set(destMap, dDest, 0);
+                    Reflect.set(destMap, dDest, Reflect.get(destMap, dDest) + d.sales_amount);
+
+                    if (dDate.length >= 7) {
+                        const mm = dDate.substring(0, 7);
+                        if (!Reflect.has(monthMap, mm)) Reflect.set(monthMap, mm, 0);
+                        Reflect.set(monthMap, mm, Reflect.get(monthMap, mm) + d.sales_amount);
+
+                        if (!Reflect.has(monthQtyMap, mm)) Reflect.set(monthQtyMap, mm, 0);
+                        Reflect.set(monthQtyMap, mm, Reflect.get(monthQtyMap, mm) + dQty);
+
+                        // 이번 작기 매출 & 수량 합산
+                        if (!Reflect.has(currSeasonMap, mm)) Reflect.set(currSeasonMap, mm, 0);
+                        Reflect.set(currSeasonMap, mm, Reflect.get(currSeasonMap, mm) + d.sales_amount);
+
+                        if (!Reflect.has(currSeasonQtyMap, mm)) Reflect.set(currSeasonQtyMap, mm, 0);
+                        Reflect.set(currSeasonQtyMap, mm, Reflect.get(currSeasonQtyMap, mm) + dQty);
+                    }
+
+                    if (d.bid_price > 0 && dDate.length >= 10) {
+                        if (!Reflect.has(datePriceMap, dDate)) {
+                            Reflect.set(datePriceMap, dDate, d.bid_price);
+                        } else {
+                            const currentMax = Reflect.get(datePriceMap, dDate);
+                            if (d.bid_price > currentMax) { Reflect.set(datePriceMap, dDate, d.bid_price); }
+                        }
+                    }
+                }
+
+                if (dDate >= prevSeasonStart && dDate < activeSeasonStart) {
+                    if (dDate.length >= 7) {
+                        const mm = dDate.substring(0, 7);
+                        // 이전 작기 매출 & 수량 합산
+                        if (!Reflect.has(prevSeasonMap, mm)) Reflect.set(prevSeasonMap, mm, 0);
+                        Reflect.set(prevSeasonMap, mm, Reflect.get(prevSeasonMap, mm) + d.sales_amount);
+
+                        if (!Reflect.has(prevSeasonQtyMap, mm)) Reflect.set(prevSeasonQtyMap, mm, 0);
+                        Reflect.set(prevSeasonQtyMap, mm, Reflect.get(prevSeasonQtyMap, mm) + dQty);
+                    }
+                }
+            });
+
+            const allDates = Object.keys(datePriceMap);
+            allDates.forEach(function(dDate) {
+                const maxPrice = Reflect.get(datePriceMap, dDate);
+                const mm = dDate.substring(0, 7);
+                const dowStr = new Date(dDate).getDay().toString();
+
+                if (!Reflect.has(monthDowMap, mm)) Reflect.set(monthDowMap, mm, {});
+                const mObj = Reflect.get(monthDowMap, mm);
+
+                if (!Reflect.has(mObj, dowStr)) Reflect.set(mObj, dowStr, {sum: 0, count: 0});
+                const dowObj = Reflect.get(mObj, dowStr);
+
+                Reflect.set(dowObj, 'sum', Reflect.get(dowObj, 'sum') + maxPrice);
+                Reflect.set(dowObj, 'count', Reflect.get(dowObj, 'count') + 1);
+
+                if (!Reflect.has(monthDowMap, 'all')) Reflect.set(monthDowMap, 'all', {});
+                const allObj = Reflect.get(monthDowMap, 'all');
+
+                if (!Reflect.has(allObj, dowStr)) Reflect.set(allObj, dowStr, {sum: 0, count: 0});
+                const allDowObj = Reflect.get(allObj, dowStr);
+
+                Reflect.set(allDowObj, 'sum', Reflect.get(allDowObj, 'sum') + maxPrice);
+                Reflect.set(allDowObj, 'count', Reflect.get(allDowObj, 'count') + 1);
+            });
+        }
+
+        const destListEl = document.getElementById('dest_list');
+        if (destListEl) {
+            let destLabelsList = Object.keys(destMap);
+            destLabelsList.forEach(function(destName) {
+                let opt = document.createElement('option');
+                opt.value = destName;
+                destListEl.appendChild(opt);
+            });
+        }
+
+        const statSalesEl = document.getElementById('stat-sales');
+        if(statSalesEl) statSalesEl.innerText = fmtNum(mSales);
+        const statQtyEl = document.getElementById('stat-qty');
+        if(statQtyEl) statQtyEl.innerText = fmtNum(mQty);
+        const statPriceEl = document.getElementById('stat-price');
+        if(statPriceEl) statPriceEl.innerText = mBidCount ? fmtNum(Math.round(mBidSum/mBidCount)) : '0';
+
+
+        let sortedDates = Object.keys(datePriceMap).sort();
+        let maxPrices = sortedDates.map(d => Reflect.get(datePriceMap, d));
+        if(sortedDates.length === 0) { sortedDates = Array.of(activeSeasonStart); maxPrices = Array.of(0); }
+
+        const priceCtx = document.getElementById('priceChart');
+        if(priceCtx) {
+            new Chart(priceCtx.getContext('2d'), {
+                type: 'line',
+                data: { labels: sortedDates.map(d => d.substring(5)), datasets: Array.of({ label: '일일 최고 단가(원)', data: maxPrices, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, tension: 0.3, fill: true, pointRadius: 2 }) },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        let dowChartInstance = null;
+        const dowCtx = document.getElementById('dowChart');
+        const monthSelector = document.getElementById('month_selector');
+
+        if (monthSelector && dowCtx) {
+            const sortedDMonths = Object.keys(monthDowMap).filter(function(k) { return k !== 'all'; }).sort().reverse();
+
+            const allOpt = document.createElement('option');
+            allOpt.value = 'all';
+            allOpt.text = '작기 전체';
+            monthSelector.appendChild(allOpt);
+
+            sortedDMonths.forEach(function(mm) {
+                const opt = document.createElement('option');
+                opt.value = mm;
+                opt.text = mm.substring(5) + "월";
+                monthSelector.appendChild(opt);
+            });
+
+            window.updateWeekdayChart = function(mm) {
+                const mObj = Reflect.get(monthDowMap, mm) || {};
+                const labels = Array.of('일', '월', '화', '수', '목', '금', '토');
+                const dataArr = Array.of('0','1','2','3','4','5','6').map(function(dow) {
+                    if (Reflect.has(mObj, dow)) {
+                        const dowObj = Reflect.get(mObj, dow);
+                        return Math.round(Reflect.get(dowObj, 'sum') / Reflect.get(dowObj, 'count'));
+                    } else {
+                        return 0;
+                    }
+                });
+                const bgColorsArr = Array.of('#ef4444', '#94a3b8', '#94a3b8', '#94a3b8', '#94a3b8', '#94a3b8', '#3b82f6');
+
+                if (dowChartInstance) {
+                    const dataObj = Reflect.get(dowChartInstance, 'data');
+                    const dSets = Reflect.get(dataObj, 'datasets');
+                    const firstSet = Reflect.get(dSets, '0');
+                    Reflect.set(firstSet, 'data', dataArr);
+                    dowChartInstance.update();
+                } else {
+                    dowChartInstance = new Chart(dowCtx.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: Array.of({
+                                label: '평균 단가(원)',
+                                data: dataArr,
+                                backgroundColor: bgColorsArr,
+                                borderRadius: 4
+                            })
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                }
+            };
+
+            monthSelector.addEventListener('change', function(e) {
+                window.updateWeekdayChart(e.target.value);
+            });
+
+            if (Reflect.has(monthDowMap, 'all')) {
+                window.updateWeekdayChart('all');
+            } else if (sortedDMonths.length > 0) {
+                window.updateWeekdayChart(Reflect.get(sortedDMonths, '0'));
+            }
+        }
+
+        const startMStr = activeSeasonStart.substring(5, 7);
+        let startM = parseInt(startMStr);
+        const compMonthLabels = new Array();
+        for (let i = 0; i < 12; i++) {
+            let m = startM + i;
+            if (m > 12) m -= 12;
+            let mStr = m.toString();
+            if (mStr.length === 1) mStr = "0" + mStr;
+            compMonthLabels.push(mStr + "월");
+        }
+
+        // --- 매출 비교 데이터 ---
+        const currData = compMonthLabels.map(mStr => {
+            let foundVal = 0;
+            const keys = Object.keys(currSeasonMap);
+            keys.forEach(k => { if (k.endsWith(mStr.substring(0, 2))) foundVal = Reflect.get(currSeasonMap, k); });
+            return foundVal;
+        });
+        const prevData = compMonthLabels.map(mStr => {
+            let foundVal = 0;
+            const keys = Object.keys(prevSeasonMap);
+            keys.forEach(k => { if (k.endsWith(mStr.substring(0, 2))) foundVal = Reflect.get(prevSeasonMap, k); });
+            return foundVal;
+        });
+
+        // --- 수량 비교 데이터 (NEW!) ---
+        const currQtyData = compMonthLabels.map(mStr => {
+            let foundVal = 0;
+            const keys = Object.keys(currSeasonQtyMap);
+            keys.forEach(k => { if (k.endsWith(mStr.substring(0, 2))) foundVal = Reflect.get(currSeasonQtyMap, k); });
+            return foundVal;
+        });
+        const prevQtyData = compMonthLabels.map(mStr => {
+            let foundVal = 0;
+            const keys = Object.keys(prevSeasonQtyMap);
+            keys.forEach(k => { if (k.endsWith(mStr.substring(0, 2))) foundVal = Reflect.get(prevSeasonQtyMap, k); });
+            return foundVal;
+        });
+
+        // 수량 차트 그리기
+        const qtySeasonCtx = document.getElementById('qtySeasonChart');
+        if(qtySeasonCtx) {
+            new Chart(qtySeasonCtx.getContext('2d'), {
+                type: 'bar',
+                data: { labels: compMonthLabels, datasets: [ { label: `이전 작기 수량(박스)`, data: prevQtyData, backgroundColor: '#cbd5e1' }, { label: `이번 작기 수량(박스)`, data: currQtyData, backgroundColor: '#0ea5e9' } ] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // 매출 차트 그리기
+        const seasonCtx = document.getElementById('seasonChart');
+        if(seasonCtx) {
+            new Chart(seasonCtx.getContext('2d'), {
+                type: 'bar',
+                data: { labels: compMonthLabels, datasets: Array.of( { label: `이전 작기 매출액`, data: prevData, backgroundColor: '#cbd5e1' }, { label: `이번 작기 매출액`, data: currData, backgroundColor: '#10b981' } ) },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        let destLabels = Object.keys(destMap);
+        let destLabelsWithAmount = destLabels.map(l => l + ' (' + fmtNum(Reflect.get(destMap, l)) + '원)');
+        let destData = destLabels.map(l => Reflect.get(destMap, l));
+
+        if(destLabels.length === 0) { destLabelsWithAmount = Array.of('데이터 없음'); destData = Array.of(1); }
+
+        const destCtx = document.getElementById('destChart');
+        if(destCtx) {
+            new Chart(destCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: { labels: destLabelsWithAmount, datasets: Array.of({ data: destData, backgroundColor: destLabelsWithAmount.indexOf('데이터 없음') === 0 ? Array.of('#cbd5e1') : Array.of('#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'), borderWidth: 0 }) },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+    });
+</script>
+</body>
+</html>

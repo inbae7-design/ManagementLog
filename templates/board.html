@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공용 게시판 - 스마트 영농일지</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f4f6f3; color: #333; padding-bottom: 90px; }
+        .navbar-custom { background-color: #2e4d2e; border-bottom: 2px solid #1a2f1a; }
+        
+        .post-card { border-radius: 12px; border: none; transition: transform 0.2s; border-left: 4px solid #38a169; }
+        .post-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        .write-btn-wrap { position: fixed; bottom: 25px; right: 25px; z-index: 999; }
+        .write-btn { width: 60px; height: 60px; border-radius: 50%; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(25, 135, 84, 0.4); transition: transform 0.2s; text-decoration: none;}
+        .write-btn:hover { color: white; }
+        .write-btn:active { transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-4 shadow-sm">
+  <div class="container" style="max-width: 800px;">
+    <a href="/community_menu" class="text-light text-decoration-none fw-bold fs-5">
+        <span class="me-1">⬅️</span> 👥 공용 게시판
+    </a>
+  </div>
+</nav>
+
+<div class="container" style="max-width: 800px;">
+    
+    <form action="/board" method="get" class="mb-4">
+        <div class="input-group shadow-sm" style="border-radius: 10px; overflow: hidden;">
+            <input type="text" class="form-control border-success" name="search" placeholder="게시글 제목 검색..." value="{{ search }}">
+            <button class="btn btn-success fw-bold px-4" type="submit">검색</button>
+        </div>
+    </form>
+
+    <div class="d-flex flex-column gap-3">
+        {% for post in posts %}
+        <div class="card post-card shadow-sm {% if post.7 %}border-danger bg-danger bg-opacity-10{% else %}border-success{% endif %}" style="{% if post.7 %}border-left: 4px solid #dc3545 !important;{% else %}border-left: 4px solid #38a169 !important;{% endif %}">
+            <a href="{{ url_for('board_view', post_id=post.0) }}" class="text-decoration-none text-dark">
+                <div class="card-body py-3 px-3">
+                    <h6 class="fw-bold mb-2 text-truncate" style="font-size: 1.05rem;">
+                        {% if post.7 %}
+                            <span class="badge bg-danger me-1">공지</span>
+                        {% endif %}
+                        {{ post.1 }}
+                    </h6>
+                    <div class="d-flex justify-content-between align-items-center small text-muted">
+                        <span class="fw-bold {% if post.7 %}text-danger{% else %}text-success{% endif %}">👤 {{ post.3 if post.3 else post.2 }}</span>
+                        <span>{{ post.4 }} &nbsp;|&nbsp; 👁️ {{ post.5 }}</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted bg-white rounded shadow-sm border">
+            등록된 게시글이 없습니다.<br>첫 번째 글을 남겨보세요!
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="write-btn-wrap">
+    <a href="/board_write" class="btn btn-success write-btn fw-bold text-white">✏️</a>
+</div>
+
+</body>
+</html>

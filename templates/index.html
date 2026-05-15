@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 영농일지 Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .table-responsive { font-size: 0.85rem; }
+        .table th { background-color: #e8f5e9; }
+        #calendarGrid table { table-layout: fixed; margin-bottom: 0; }
+        #calendarGrid td { height: 60px; vertical-align: middle; cursor: default; }
+        .cal-active { cursor: pointer !important; transition: 0.2s; }
+        .cal-active:hover { background-color: #d1e7dd !important; }
+        
+        /* [NEW] 전광판(뉴스 티커) 애니메이션 스타일 */
+        .ticker-wrap {
+            width: 100%;
+            overflow: hidden;
+            background-color: #212529; /* 다크 모드 배경 */
+            color: #20c997; /* 형광 초록 글씨 */
+            padding: 8px 0;
+            border-radius: 5px;
+            white-space: nowrap;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+        .ticker-move {
+            display: inline-block;
+            padding-left: 100%;
+            animation: ticker 20s linear infinite;
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+        @keyframes ticker {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-success shadow-sm mb-3">
+  <div class="container" style="max-width: 800px;">
+    <span class="navbar-brand mb-0 h1 fw-bold">🌿 스마트 영농일지 Pro</span>
+    <div class="d-flex align-items-center">
+        <span class="text-white me-3 small">{{ current_user.username }}님</span>
+        <a href="/logout" class="btn btn-sm btn-outline-light">로그아웃</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container mb-5" style="max-width: 800px;">
+
+    <ul class="nav nav-tabs mb-3 bg-white rounded-top pt-2 px-2 shadow-sm" id="myTab">
+        <li class="nav-item"><button class="nav-link active fw-bold" data-bs-toggle="tab" data-bs-target="#home-tab">🏠 메인홈</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#record-tab">📝 방제기록</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#db-tab">⚙️ 농약DB</button></li>
+        <li class="nav-item"><button class="nav-link fw-bold" data-bs-toggle="tab" data-bs-target="#stats-tab">📊 통계</button></li>
+    </ul>
+
+    <div class="tab-content">
+        
+        <div class="tab-pane fade show active" id="home-tab">
+            <div class="mb-4">
+                <h6 class="text-secondary fw-bold mb-2">📢 최근 작업 보드</h6>
+                <div class="ticker-wrap">
+                    <div class="ticker-move">{{ ticker_text }}</div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4 bg-white">
+                <div class="card-body">
+                    <h6 class="text-secondary fw-bold mb-3">🌤️ 현재 우리 지역 날씨 (안성시 기준)</h6>
+                    <div id="weatherBox" class="text-center py-3 bg-light rounded border">
+                        <span class="spinner-border spinner-border-sm text-success" role="status"></span>
+                        <span class="ms-2 text-muted">기상청 데이터를 불러오는 중...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-2">
+                <div class="col-6">
+                    <button class="btn btn-outline-success w-100 py-3 fw-bold shadow-sm" onclick="document.querySelector('[data-bs-target=\'#record-tab\']').click();">
+                        📝 오늘 방제 기록하기
+                    </button>
+                </div>
+                <div class="col-6">
+                    <a href="/export" class="btn btn-outline-primary w-100 py-3 fw-bold shadow-sm">
+                        📥 영농일지 엑셀 다운
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="record-tab">
+            <div class="accordion mb-3 shadow-sm border-0" id="calcAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed text-success fw-bold py-2" type="button" data-bs-toggle="collapse" data-bs-target="#calcPanel">
+                            💡 정밀 방제 희석 계산기
+                        </button>
+                    </h2>
+                    <div id="calcPanel" class="accordion-collapse collapse">
+                        <div class="accordion-body bg-light">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-4"><input type="number" id="waterAmt" class="form-control form-control-sm" placeholder="물량(L)"></div>
+                                <div class="col-auto">L에</div>
+                                <div class="col-4"><input type="number" id="ratio" class="form-control form-control-sm" placeholder="희석배수"></div>
+                                <div class="col-auto">배 = </div>
+                            </div>
+                            <div class="mt-2 text-end text-primary fw-bold" id="calcResult">필요 농약량: 0 ml/g</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4 border-0">
+                <div class="card-body bg-white rounded">
+                    <form action="/add_record" method="post">
+                        <div class="row mb-2 g-2">
+                            <div class="col-6"><input type="date" class="form-control" name="date" required id="todayDate"></div>
+                            <div class="col-6"><input type="text" class="form-control" name="area" placeholder="구역 (예: 1번 밭)"></div>
+                        </div>
+                        <div class="mb-2"><input type="text" class="form-control" name="crop" value="오이" placeholder="작물명 (기본값: 오이)" required></div>
+                        <div class="mb-2">
+                            <select class="form-select border-success" name="name" required>
+                                <option value="" disabled selected>등록된 농약을 선택하세요</option>
+                                {% for db in db_list %}
+                                <option value="{{ db[2] }}">{{ db[2] }} ({{ db[5] }}g/ml, {{ db[6] }}원)</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="input-group mb-3">
+                            <span class="input-group-text bg-light">사용 개수</span>
+                            <input type="number" class="form-control" name="count" value="1" min="1" required>
+                            <span class="input-group-text bg-light">병/봉</span>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 fw-bold shadow-sm">기록</button>
+                    </form>
+                </div>
+            </div>
+
+            <hr>
+            <div class="mb-3">
+                <input type="text" id="recordSearch" class="form-control border-success" placeholder="🔍 농약명으로 방제 기록 검색 (예: 다이센엠)">
+                <div id="searchSummary" class="mt-2 text-primary fw-bold" style="font-size: 0.9rem;"></div>
+            </div>
+
+            <div class="table-responsive bg-white shadow-sm rounded border">
+                <table class="table table-hover align-middle text-center mb-0" id="recordTable">
+                    <thead>
+                        <tr>
+                            <th>방제일</th>
+                            <th>구역/작물</th>
+                            <th>농약명<br>(병충해)</th>
+                            <th>사용량<br>비용</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rec in records %}
+                        <tr class="record-row">
+                            <td class="rec-date fw-bold text-secondary">{{ rec[2] }}</td>
+                            <td>{{ rec[3] }}<br><small class="text-muted">{{ rec[4] }}</small></td>
+                            <td><strong class="rec-name text-dark">{{ rec[5] }}</strong><br><small class="text-muted">{{ rec[6] }} | {{ rec[7] }}</small></td>
+                            <td>{{ rec[8] }}개 ({{ rec[9] }}g/ml)<br><strong class="text-success">{{ "{:,.0f}".format(rec[10]) }}원</strong></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary mb-1 w-100" 
+                                    onclick="openEditRecordModal('{{ rec[0] }}', '{{ rec[2] }}', '{{ rec[3] }}', '{{ rec[4] }}', '{{ rec[5] }}', '{{ rec[8] }}')">수정</button>
+                                <a href="/delete/record/{{ rec[0] }}" class="btn btn-sm btn-outline-danger w-100" onclick="return confirm('이 방제 기록을 삭제하시겠습니까?');">삭제</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not records %}
+                        <tr><td colspan="5" class="text-muted py-4">아직 기록이 없습니다.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="db-tab">
+            <button class="btn btn-dark w-100 mb-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#addDbModal">
+                ➕ 새 농약 DB에 등록하기
+            </button>
+            <ul class="list-group shadow-sm border-0">
+                {% for db in db_list %}
+                <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                    <div>
+                        <strong class="text-dark">{{ db[2] }}</strong> <small class="text-muted">({{ db[3] }} / {{ db[4] }})</small><br>
+                        <small class="text-secondary">{{ db[5] }}g/ml | {{ "{:,.0f}".format(db[6]) }}원</small>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-primary" 
+                                onclick="openEditDbModal('{{ db[0] }}', '{{ db[2] }}', '{{ db[3] }}', '{{ db[4] }}', '{{ db[5] }}', '{{ db[6] }}')">수정</button>
+                        <a href="/delete/db/{{ db[0] }}" class="btn btn-sm btn-light text-danger border" onclick="return confirm('공용 농약 정보를 삭제하시겠습니까?');">삭제</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="tab-pane fade" id="stats-tab">
+            <div class="card shadow-sm mb-3 border-0 bg-success text-white">
+                <div class="card-body text-center py-3">
+                    <h6 class="mb-1 opacity-75">총 방제 누적 비용</h6>
+                    <h2 class="fw-bold m-0">{{ "{:,.0f}".format(total_cost) }} 원</h2>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h6 class="text-secondary fw-bold mb-3">📈 농약별 지출 분석</h6>
+                    <div style="position: relative; height: 250px; width: 100%;">
+                        <canvas id="costChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <button class="btn btn-sm btn-outline-success fw-bold" onclick="changeMonth(-1)">◀ 이전</button>
+                        <h5 class="m-0 fw-bold text-dark" id="calMonthYear"></h5>
+                        <button class="btn btn-sm btn-outline-success fw-bold" onclick="changeMonth(1)">다음 ▶</button>
+                    </div>
+                    <div id="calendarGrid" class="text-center"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addDbModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-light py-2"><h6 class="modal-title fw-bold">나만의 농약 등록</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form action="/add_db" method="post"><input type="text" class="form-control mb-2" name="name" placeholder="농약명 (필수)" required><div class="row g-2 mb-2"><div class="col"><input type="text" class="form-control" name="mech" placeholder="작용기작"></div><div class="col"><input type="text" class="form-control" name="pest" placeholder="적용병충해"></div></div><div class="row g-2 mb-3"><div class="col"><input type="number" class="form-control" name="unit" placeholder="용량(g/ml)"></div><div class="col"><input type="number" class="form-control" name="price" placeholder="단가(원)"></div></div><button type="submit" class="btn btn-dark w-100">저장하기</button></form></div></div></div></div>
+<div class="modal fade" id="editDbModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-primary text-white py-2"><h6 class="modal-title fw-bold">농약 정보 수정</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form action="/edit_db" method="post"><input type="hidden" name="id" id="edit_db_id"><input type="text" class="form-control mb-2" name="name" id="edit_name" required><div class="row g-2 mb-2"><div class="col"><input type="text" class="form-control" name="mech" id="edit_mech"></div><div class="col"><input type="text" class="form-control" name="pest" id="edit_pest"></div></div><div class="row g-2 mb-3"><div class="col"><input type="number" class="form-control" name="unit" id="edit_unit"></div><div class="col"><input type="number" class="form-control" name="price" id="edit_price"></div></div><button type="submit" class="btn btn-primary w-100 fw-bold">수정 완료</button></form></div></div></div></div>
+<div class="modal fade" id="editRecordModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header bg-success text-white py-2"><h6 class="modal-title fw-bold">방제 기록 수정</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><form action="/edit_record" method="post"><input type="hidden" name="id" id="edit_rec_id"><div class="row mb-2 g-2"><div class="col-6"><input type="date" class="form-control" name="date" id="edit_rec_date" required></div><div class="col-6"><input type="text" class="form-control" name="area" id="edit_rec_area"></div></div><div class="mb-2"><input type="text" class="form-control" name="crop" id="edit_rec_crop" required></div><div class="mb-2"><select class="form-select border-success" name="name" id="edit_rec_name" required>{% for db in db_list %}<option value="{{ db[2] }}">{{ db[2] }} ({{ db[5] }}g/ml, {{ db[6] }}원)</option>{% endfor %}</select></div><div class="input-group mb-3"><span class="input-group-text bg-light">사용 개수</span><input type="number" class="form-control" name="count" id="edit_rec_count" min="1" required><span class="input-group-text bg-light">병/봉</span></div><button type="submit" class="btn btn-success w-100 fw-bold shadow-sm">기록 수정 완료</button></form></div></div></div></div>
+
+<div class="modal fade" id="calDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white py-2">
+                <h6 class="modal-title fw-bold" id="calModalTitle">방제 내역</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <ul class="list-group list-group-flush" id="calModalList"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('todayDate').valueAsDate = new Date();
+
+    // --------------------------------------------------------
+    // [NEW] 실시간 날씨 API 연동 (안성시 좌표: 37.0078, 127.2797)
+    // --------------------------------------------------------
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=37.0078&longitude=127.2797&current_weather=true')
+    .then(response => response.json())
+    .then(data => {
+        const w = data.current_weather;
+        // WMO 날씨 코드 변환
+        const weatherCodes = {
+            0: '☀️ 맑음', 1: '🌤️ 대체로 맑음', 2: '⛅ 부분 흐림', 3: '☁️ 흐림', 
+            45: '🌫️ 안개', 48: '🌫️ 짙은 안개', 51: '🌧️ 가벼운 이슬비', 61: '☔ 비', 
+            71: '❄️ 눈', 95: '🌩️ 뇌우'
+        };
+        const status = weatherCodes[w.weathercode] || '🌈 날씨 정보';
+        
+        document.getElementById('weatherBox').innerHTML = `
+            <h4 class="fw-bold text-success mb-1">${w.temperature}°C</h4>
+            <p class="mb-0 text-secondary fw-bold">${status} | 💨 풍속: ${w.windspeed} km/h</p>
+        `;
+    })
+    .catch(err => {
+        document.getElementById('weatherBox').innerHTML = `<span class="text-danger">날씨 정보를 불러오지 못했습니다.</span>`;
+    });
+
+    // --------------------------------------------------------
+    // 기존 스크립트 모음 (계산기, 달력, 차트, 검색)
+    // --------------------------------------------------------
+    const wAmt = document.getElementById('waterAmt'); const ratio = document.getElementById('ratio'); const res = document.getElementById('calcResult');
+    function calcRatio() { if(wAmt.value && ratio.value) { res.innerText = `필요 농약량: ${((wAmt.value * 1000) / ratio.value).toFixed(1)} ml/g`; } else { res.innerText = "필요 농약량: 0 ml/g"; } }
+    wAmt.addEventListener('input', calcRatio); ratio.addEventListener('input', calcRatio);
+
+    const calData = {{ calendar_data | safe }}; let currentDate = new Date();
+    function renderCalendar() {
+        const year = currentDate.getFullYear(); const month = currentDate.getMonth();
+        document.getElementById('calMonthYear').innerText = `${year}년 ${month + 1}월`;
+        const firstDay = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let html = '<table class="table table-bordered table-sm text-center"><thead><tr class="table-light text-secondary">';
+        ['일', '월', '화', '수', '목', '금', '토'].forEach(d => html += `<th>${d}</th>`);
+        html += '</tr></thead><tbody><tr>';
+        for (let i = 0; i < firstDay; i++) { html += '<td></td>'; }
+        for (let day = 1; day <= daysInMonth; day++) {
+            if ((firstDay + day - 1) % 7 === 0 && day !== 1) html += '</tr><tr>';
+            const dateStr = `${year}-${String(month+1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            let cellClass = ''; let badge = ''; let clickEvent = '';
+            if (calData[dateStr]) {
+                cellClass = 'bg-success bg-opacity-25 text-success fw-bold cal-active';
+                badge = `<br><span class="badge bg-success rounded-pill mt-1" style="font-size:0.65rem;">${calData[dateStr].length}건</span>`;
+                clickEvent = `onclick="openCalDetail('${dateStr}')"`;
+            }
+            html += `<td class="${cellClass}" ${clickEvent}>${day}${badge}</td>`;
+        }
+        html += '</tr></tbody></table>'; document.getElementById('calendarGrid').innerHTML = html;
+    }
+    function changeMonth(offset) { currentDate.setMonth(currentDate.getMonth() + offset); renderCalendar(); }
+    function openCalDetail(dateStr) {
+        if (!calData[dateStr]) return;
+        document.getElementById('calModalTitle').innerText = `${dateStr} 방제 내역`;
+        let listHtml = '';
+        calData[dateStr].forEach(r => { listHtml += `<li class="list-group-item"><h6 class="mb-1 text-success fw-bold">${r.name}</h6><small class="text-muted">🌱 작물: ${r.crop} | 🐛 병충해: ${r.pest}</small></li>`; });
+        document.getElementById('calModalList').innerHTML = listHtml;
+        new bootstrap.Modal(document.getElementById('calDetailModal')).show();
+    }
+    renderCalendar();
+
+    const chartCounts = {{ stats_counts | safe }};
+    const ctx = document.getElementById('costChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: { labels: {{ stats_labels | safe }}, datasets: [{ label: '지출 비용', data: {{ stats_prices | safe }}, backgroundColor: 'rgba(25, 135, 84, 0.8)', borderColor: '#198754', borderWidth: 1, borderRadius: 4 }] },
+        options: {
+            maintainAspectRatio: false, indexAxis: 'y', responsive: true,
+            plugins: { tooltip: { callbacks: { label: function(c) { return `${new Intl.NumberFormat('ko-KR').format(c.parsed.x)}원 (총 ${chartCounts[c.dataIndex]}회 방제)`; } } } }
+        }
+    });
+
+    function openEditDbModal(id, name, mech, pest, unit, price) {
+        document.getElementById('edit_db_id').value = id; document.getElementById('edit_name').value = name;
+        document.getElementById('edit_mech').value = (mech!=='None')?mech:''; document.getElementById('edit_pest').value = (pest!=='None')?pest:'';
+        document.getElementById('edit_unit').value = unit; document.getElementById('edit_price').value = price;
+        new bootstrap.Modal(document.getElementById('editDbModal')).show();
+    }
+
+    function openEditRecordModal(id, date, area, crop, name, count) {
+        document.getElementById('edit_rec_id').value = id; document.getElementById('edit_rec_date').value = date;
+        document.getElementById('edit_rec_area').value = (area!=='None')?area:''; document.getElementById('edit_rec_crop').value = crop;
+        document.getElementById('edit_rec_name').value = name; document.getElementById('edit_rec_count').value = count;
+        new bootstrap.Modal(document.getElementById('editRecordModal')).show();
+    }
+
+    document.getElementById('recordSearch').addEventListener('input', function() {
+        let filter = this.value.toLowerCase(); let rows = document.querySelectorAll('.record-row');
+        let count = 0; let dates = [];
+        rows.forEach(row => {
+            let nameCell = row.querySelector('.rec-name').textContent.toLowerCase(); let dateCell = row.querySelector('.rec-date').textContent;
+            if (nameCell.includes(filter)) { row.style.display = ''; count++; if (!dates.includes(dateCell)) dates.push(dateCell); } 
+            else { row.style.display = 'none'; }
+        });
+        let summary = document.getElementById('searchSummary');
+        if (filter === '' || count === 0) { summary.innerHTML = count === 0 && filter !== '' ? '검색 결과가 없습니다.' : ''; } 
+        else { dates.sort().reverse(); summary.innerHTML = `✅ [${this.value}] 총 <strong>${count}회</strong> 방제 <br><span class="text-secondary fw-normal">🗓️ 방제일: ${dates.join(', ')}</span>`; }
+    });
+</script>
+</body>
+</html>

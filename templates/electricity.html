@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전기료 - 영농일지</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>.table-responsive { font-size: 0.85rem; } .table th { background-color: #f8f9fa; }</style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark shadow-sm mb-3">
+  <div class="container" style="max-width: 800px;">
+    <a href="/" class="navbar-brand mb-0 h4 fw-bold text-decoration-none"><span class="fs-4 me-1">⬅️</span> 전기료 관리</a>
+    <a href="/export_electricity" class="btn btn-sm btn-outline-light fw-bold">📥 엑셀 다운</a>
+  </div>
+</nav>
+
+<div class="container mb-5" style="max-width: 800px;">
+    <div class="row g-2 mb-4 text-center">
+        <div class="col-6">
+            <div class="card border-0 shadow-sm bg-white border-bottom border-warning border-3">
+                <div class="card-body py-3"><span class="d-block text-muted small fw-bold mb-1">⚡ 총 사용량 (KW)</span><h5 class="text-warning fw-bold m-0">{{ "{:,.1f}".format(total_kw) }} KW</h5></div>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="card border-0 shadow-sm bg-white border-bottom border-danger border-3">
+                <div class="card-body py-3"><span class="d-block text-muted small fw-bold mb-1">💸 총 전기료 누적액</span><h5 class="text-danger fw-bold m-0">{{ "{:,.0f}".format(total_cost) }}원</h5></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-white pt-3 border-0"><h6 class="fw-bold m-0 text-dark">➕ 새 전기료 내역 등록</h6></div>
+        <div class="card-body bg-white rounded">
+            <form action="/add_electricity" method="post">
+                <div class="row mb-3 g-2">
+                    <div class="col-4"><label class="form-label small text-muted mb-1">월.일</label><input type="date" class="form-control" name="date" required id="todayDate"></div>
+                    <div class="col-4"><label class="form-label small text-muted mb-1">사용량 (KW)</label><input type="number" step="any" class="form-control bg-light" name="usage_kw" required></div>
+                    <div class="col-4"><label class="form-label small text-muted mb-1">금액 (원)</label><input type="number" class="form-control fw-bold border-danger" name="cost" required></div>
+                </div>
+                <button type="submit" class="btn btn-dark w-100 fw-bold shadow-sm py-2">등록하기</button>
+            </form>
+        </div>
+    </div>
+
+    <h6 class="text-secondary fw-bold mb-3">📋 상세 내역</h6>
+    <div class="table-responsive bg-white shadow-sm rounded border">
+        <table class="table table-hover align-middle text-center mb-0">
+            <thead><tr class="text-muted" style="font-size: 0.8rem;"><th>월.일</th><th>사용량(KW)</th><th>금액(원)</th><th>관리</th></tr></thead>
+            <tbody>
+                {% for rec in records %}
+                <tr>
+                    <td><strong class="text-secondary">{{ rec[2] }}</strong></td>
+                    <td><span class="text-dark">{{ rec[3] }} KW</span></td>
+                    <td><strong class="text-danger">{{ "{:,.0f}".format(rec[4]) }}원</strong></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary py-0 px-2 w-100 mb-1" onclick="openEditModal('{{ rec[0] }}', '{{ rec[2] }}', '{{ rec[3] }}', '{{ rec[4] }}')">수정</button>
+                        <a href="/delete/electricity/{{ rec[0] }}" class="btn btn-sm btn-outline-danger py-0 px-2 w-100" onclick="return confirm('삭제하시겠습니까?');">삭제</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0" style="border-radius: 15px;">
+        <div class="modal-header bg-dark text-white py-2"><h6 class="modal-title fw-bold">내역 수정</h6><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body p-3">
+            <form action="/edit_electricity" method="post"><input type="hidden" name="id" id="e_id">
+                <div class="row mb-3 g-2">
+                    <div class="col-4"><input type="date" class="form-control" name="date" id="e_date" required></div>
+                    <div class="col-4"><input type="number" step="any" class="form-control" name="usage_kw" id="e_usage" placeholder="사용량(KW)" required></div>
+                    <div class="col-4"><input type="number" class="form-control" name="cost" id="e_cost" placeholder="금액(원)" required></div>
+                </div>
+                <button type="submit" class="btn btn-dark w-100 fw-bold">수정 완료</button>
+            </form>
+        </div>
+    </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.getElementById('todayDate').valueAsDate = new Date();
+    function openEditModal(id, date, usage, cost) {
+        document.getElementById('e_id').value = id; document.getElementById('e_date').value = date;
+        document.getElementById('e_usage').value = usage; document.getElementById('e_cost').value = cost;
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+</script>
+</body>
+</html>

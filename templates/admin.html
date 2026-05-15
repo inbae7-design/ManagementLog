@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 페이지</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container mt-4" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="fw-bold">👑 회원 및 정회원 관리</h3>
+        <a href="/" class="btn btn-outline-secondary fw-bold">홈으로</a>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-info fw-bold">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle text-center" style="font-size: 0.9rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>NO</th>
+                            <th>아이디(농장)</th>
+                            <th>상태/기록</th>
+                            <th>정회원 승인</th>
+                            <th>계정 삭제</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>{{ u.id }}</td>
+                            <td>
+                                <div class="fw-bold fs-6">{{ u.username }}</div>
+                                <div class="small text-muted">{{ u.farm_name }}</div>
+                            </td>
+                            <td>
+                                {% if u.is_online %}
+                                    <span class="badge bg-success">현재접속중</span>
+                                {% else %}
+                                    <span class="badge bg-secondary text-wrap" style="width: 4.5rem;">{{ u.last_active }}</span>
+                                {% endif %}
+                                <div class="small mt-1 fw-bold text-primary">{{ u.data_cnt }}건 기록</div>
+                            </td>
+                            <td>
+                                {% if u.username == 'admin' %}
+                                    <span class="badge bg-dark px-2 py-1">최고관리자</span>
+                                {% else %}
+                                    {% if u.is_approved %}
+                                        <a href="/toggle_approval/{{ u.id }}" class="btn btn-sm btn-success fw-bold px-3">승인됨</a>
+                                    {% else %}
+                                        <a href="/toggle_approval/{{ u.id }}" class="btn btn-sm btn-outline-danger fw-bold px-3">대기중</a>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.username != 'admin' %}
+                                <a href="/delete_user_admin/{{ u.id }}" class="btn btn-sm btn-danger fw-bold" onclick="return confirm('정말 삭제하시겠습니까? 해당 회원의 모든 기록이 날아갑니다.');">삭제</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="alert alert-warning mt-3 small fw-bold">
+        💡 '대기중' 버튼을 누르면 정회원으로 승인되며, 커뮤니티(게시판, 채팅방)에 입장할 수 있습니다. 한 번 더 누르면 승인이 취소됩니다.
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영농일지 메뉴 - 스마트 영농일지</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f4f6f3; color: #333; }
+        .navbar-custom { background-color: #2e4d2e; border-bottom: 2px solid #1a2f1a; }
+        
+        .menu-btn-custom { border-radius: 15px; transition: all 0.3s ease-in-out; text-align: left; padding: 1.25rem 1rem; border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; text-decoration: none;}
+        .menu-btn-custom::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g fill-opacity="0.05"><path d="M50 0 C 60 10, 70 20, 80 30 C 90 40, 100 50, 90 60 C 80 70, 70 80, 60 90 C 50 100, 40 90, 30 80 C 20 70, 10 60, 20 50 C 30 40, 40 30, 50 0 Z"></path></g></svg>'); background-repeat: no-repeat; background-position: center; background-size: cover; opacity: 0.1; z-index: 1; }
+        .menu-btn-custom:hover { transform: translateY(-3px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
+        .menu-btn-custom small, .menu-btn-custom .fw-bold, .menu-btn-custom .fs-2, .menu-btn-custom .fs-3 { z-index: 2; position: relative; }
+        
+        .btn-pest { background: linear-gradient(135deg, #38a169 0%, #2f855a 100%); color: #fff; }
+        .btn-irri { background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%); color: #fff; }
+        .btn-mgmt { background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%); color: #4a5568; border: 1px solid #e2e8f0; }
+        .btn-mgmt:hover { background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border-color: #cbd5e0; }
+        .btn-memo-custom { border: 2px solid #ed8936; color: #7b341e; background: linear-gradient(135deg, #fffaf0 0%, #fffaf0 100%); }
+        .btn-analysis-custom { background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%); color: #f7fafc; }
+        
+        .header-title-custom { font-weight: 700; color: #4a5568; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom py-2 mb-4 shadow-sm">
+  <div class="container" style="max-width: 800px;">
+    <a href="/" class="text-light text-decoration-none fw-bold fs-5">
+        <span class="me-1">⬅️</span> 📓 스마트 영농일지 전체 메뉴
+    </a>
+  </div>
+</nav>
+
+<div class="container mb-5" style="max-width: 800px;">
+    
+    <h6 class="header-title-custom mb-2 px-1">🌱 주요작업 (방제/관주)</h6>
+    <div class="row g-2 mb-4">
+        <div class="col-6"><a href="/pesticide" class="btn-pest w-100 menu-btn-custom shadow-sm"><div class="fs-2 mb-1">🐛</div><div class="fw-bold">병충해 방제</div></a></div>
+        <div class="col-6"><a href="/irrigation" class="btn-irri w-100 menu-btn-custom shadow-sm"><div class="fs-2 mb-1">💧</div><div class="fw-bold">관주 / 양액</div></a></div>
+    </div>
+
+    <h6 class="header-title-custom mb-2 px-1">💰 경영 및 지출 기록</h6>
+    <div class="row g-2 mb-4">
+        <div class="col-4"><a href="/shipment" class="btn-mgmt w-100 menu-btn-custom shadow-sm"><div class="fs-3 mb-1">📦</div><small class="fw-bold">출하/판매</small></a></div>
+        <div class="col-4"><a href="/seed" class="btn-mgmt w-100 menu-btn-custom shadow-sm"><div class="fs-3 mb-1">🌱</div><small class="fw-bold">종자/종묘</small></a></div>
+        <div class="col-4"><a href="/fertilizer" class="btn-mgmt w-100 menu-btn-custom shadow-sm"><div class="fs-3 mb-1">🧪</div><small class="fw-bold">비료대</small></a></div>
+        <div class="col-4"><a href="/fuel" class="btn-mgmt w-100 menu-btn-custom shadow-sm"><div class="fs-3 mb-1">⛽</div><small class="fw-bold">유류대</small></a></div>
+        <div class="col-4"><a href="/electricity" class="btn-mgmt w-100 menu-btn-custom shadow-sm"><div class="fs-3 mb-1">⚡</div><small class="fw-bold">전기세</small></a></div>
+        <div class="col-4"><a href="/other_cost" class="btn-mgmt w-100 menu-btn-custom shadow-sm"><div class="fs-3 mb-1">🛠️</div><small class="fw-bold">기타재료비</small></a></div>
+    </div>
+
+    <h6 class="header-title-custom mb-2 px-1">📏 오이 생육 및 환경 데이터</h6>
+    <div class="row g-2 mb-4">
+        <div class="col-12">
+            <a href="/growth" class="w-100 menu-btn-custom shadow-sm d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #e6ffe6 0%, #ffffff 100%); border: 1px solid #c3e6c3; padding: 1.25rem 1.5rem;">
+                <span class="d-flex align-items-center"><span class="fs-4 me-3">📈</span> <span class="fw-bold text-success">생육 상태 & 환경(DIF) 기록</span></span>
+                <span class="fs-5 opacity-60 text-success">▶</span>
+            </a>
+        </div>
+    </div>
+
+    <h6 class="header-title-custom mb-2 px-1">📝 일상 기록 (이벤트)</h6>
+    <div class="row g-2 mb-4">
+        <div class="col-12">
+            <a href="/memo" class="btn-memo-custom w-100 menu-btn-custom shadow-sm d-flex justify-content-between align-items-center" style="padding: 1.25rem 1.5rem;">
+                <span class="d-flex align-items-center"><span class="fs-4 me-3">📓</span> <span class="fw-bold">영농 기타 메모장 바로가기</span></span>
+                <span class="fs-5 opacity-60">▶</span>
+            </a>
+        </div>
+    </div>
+
+    <h6 class="header-title-custom mb-2 px-1">📊 통계 및 분석 (소득)</h6>
+    <div class="row g-2">
+        <div class="col-12"><a href="/analysis" class="btn-analysis-custom w-100 menu-btn-custom shadow-sm d-flex justify-content-between align-items-center" style="padding: 1.25rem 1.5rem;"><span><span class="fs-4 me-3">📉</span> <span class="fw-bold">소득 분석표 보기 (자동/수동)</span></span><span class="fs-5 opacity-60">▶</span></a></div>
+    </div>
+
+</div>
+
+</body>
+</html>
